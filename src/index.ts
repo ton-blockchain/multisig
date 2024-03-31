@@ -992,7 +992,11 @@ $('#newMultisig1_nextButton').addEventListener('click', () => {
 });
 
 $('#newMultisig1_backButton').addEventListener('click', () => {
-    showScreen('startScreen');
+    if (newMultisigMode === 'create') {
+        showScreen('startScreen');
+    } else {
+        showScreen('multisigScreen');
+    }
 });
 
 $('#newMultisig2_createButton').addEventListener('click', async () => {
@@ -1138,6 +1142,14 @@ $('#newMultisig2_createButton').addEventListener('click', async () => {
 });
 
 $('#newMultisig2_backButton').addEventListener('click', () => {
+    showScreen('newMultisigScreen1');
+});
+
+// UPDATE
+
+$('#multisig_updateButton').addEventListener('click', () => {
+    newMultisigMode = 'update';
+    newMultisigClear();
     showScreen('newMultisigScreen1');
 });
 

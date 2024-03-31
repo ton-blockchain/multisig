@@ -70,8 +70,10 @@ export const checkMultisigOrder = async (
     const multisigOrderAddress2 = await multisigInfo.multisigContract.getOrderAddress(multisigInfo.provider, parsedData.orderSeqno);
     assert(multisigOrderAddress2.equals(multisigOrderAddress.address), "fake multisig-order");
 
-    assert(multisigInfo.threshold === parsedData.threshold, "multisig threshold != order treshold");
-    assert(equalsAddressLists(multisigInfo.signers, parsedData.signers), "multisig signers != order signers");
+    if (!parsedData.isExecuted) {
+        assert(multisigInfo.threshold === parsedData.threshold, "multisig threshold != order threshold");
+        assert(equalsAddressLists(multisigInfo.signers, parsedData.signers), "multisig signers != order signers");
+    }
 
     // Get-methods
 
@@ -241,7 +243,7 @@ export const checkMultisigOrder = async (
         } else if (actionOp === 0x1d0cfbd3) { // update_multisig_params
             const newThreshold = slice.loadUint(8);
             const newSigners = cellToArray(slice.loadRef());
-            const newProposers = cellToArray(slice.loadRef());
+            const newProposers = slice.loadUint(1) ? cellToArray(slice.loadRef()) : [];
             endParse(slice);
 
             assert(newSigners.length > 0, 'invalid new signers')
@@ -258,6 +260,7 @@ export const checkMultisigOrder = async (
                 actionString += (`<div>#${i} - ${addressString}</div>`);
             }
 
+            actionString += '<div>New proposers:</div>'
             if (newProposers.length > 0) {
                 for (let i = 0; i < newProposers.length; i++) {
                     const proposer = newProposers[i];
