@@ -113,6 +113,10 @@ button:disabled, .btn:disabled {
     margin-bottom: 30px;
 }
 
+#multisig_updateButton {
+    padding-left: 0;
+}
+
 #multisig_createNewOrderButton {
     margin-top: 30px;
     margin-bottom: 10px;
@@ -123,7 +127,6 @@ button:disabled, .btn:disabled {
 }
 
 #order_approveButton {
-    padding-left: 0;
     margin-bottom: 10px;
 }
 
