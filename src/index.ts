@@ -80,7 +80,7 @@ if (IS_TESTNET) {
 // TONCONNECT
 
 const tonConnectUI = new TonConnectUI({
-    manifestUrl: 'https://vesting.ton.org/tonconnect-manifest.json',
+    manifestUrl: 'https://multisig.ton.org/tonconnect-manifest.json',
     buttonRootId: 'tonConnectButton'
 });
 
