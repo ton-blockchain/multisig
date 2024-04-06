@@ -990,9 +990,6 @@ interface NewMultisigInfo {
 let newMultisigInfo: NewMultisigInfo | null = null;
 
 $('#newMultisig1_nextButton').addEventListener('click', async () => {
-    ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = true;
-    $('#newMultisigScreen1').style.pointerEvents = 'none';
-
     const signersCount = getIntFromInput(newMultisigSignersCountInput);
     if (signersCount === null || signersCount <= 0) {
         alert('Signers count: not valid number');
@@ -1017,16 +1014,16 @@ $('#newMultisig1_nextButton').addEventListener('click', async () => {
             return;
         }
 
+        ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = true;
+        $('#newMultisigScreen1').style.pointerEvents = 'none';
         const orderIdChecked = await checkExistingOrderId(orderId);
+        ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
+        $('#newMultisigScreen1').style.pointerEvents = 'auto';
         if (orderIdChecked.error) {
-            ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
-            $('#newMultisigScreen1').style.pointerEvents = 'auto';
             alert(orderIdChecked.error)
             return;
         }
     }
-    ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
-    $('#newMultisigScreen1').style.pointerEvents = 'auto';
 
     newMultisigInfo = {
         signersCount,
