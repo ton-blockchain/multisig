@@ -14,6 +14,7 @@ import {Multisig} from "./multisig/Multisig";
 import {toUnits} from "./utils/units";
 import {checkJettonMinter} from "./jetton/JettonMinterChecker";
 import {storeStateInit} from "@ton/core/src/types/StateInit";
+import {sendToIndex} from "./utils/MyNetworkProvider";
 
 // UI COMMON
 
@@ -479,6 +480,20 @@ const checkJettonMinterNextAdmin = async (values: { [key: string]: any }): Promi
     }
 }
 
+const checkExistingOrderId = async (orderId: bigint): Promise<ValidatedValue> => {
+    try {
+        const orderAddress = await currentMultisigInfo.multisigContract.getOrderAddress(currentMultisigInfo.provider, orderId);
+        const result = await sendToIndex('account', {address: orderAddress.toRawString()}, IS_TESTNET);
+        if (result.status === 'uninit') {
+            return {value: true};
+        } else {
+            return {error: `Order ${orderId} already exists`};
+        }
+    } catch (e) {
+        return {error: 'Possibly connectivity error'};
+    }
+}
+
 const orderTypes: OrderType[] = [
     {
         name: 'Transfer TON',
@@ -808,6 +823,13 @@ $('#newOrder_createButton').addEventListener('click', async () => {
 
     setDisabled(true);
 
+    const orderIdChecked = await checkExistingOrderId(orderId);
+    if (orderIdChecked.error) {
+        alert(orderIdChecked.error)
+        setNewOrderMode('fill')
+        return;
+    }
+
     if (orderType.check) {
         const checked = await orderType.check(values);
         if (checked.error) {
@@ -952,7 +974,10 @@ interface NewMultisigInfo {
 
 let newMultisigInfo: NewMultisigInfo | null = null;
 
-$('#newMultisig1_nextButton').addEventListener('click', () => {
+$('#newMultisig1_nextButton').addEventListener('click', async () => {
+    ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = true;
+    $('#newMultisigScreen1').style.pointerEvents = 'none';
+
     const signersCount = getIntFromInput(newMultisigSignersCountInput);
     if (signersCount === null || signersCount <= 0) {
         alert('Signers count: not valid number');
@@ -976,6 +1001,14 @@ $('#newMultisig1_nextButton').addEventListener('click', () => {
             alert('Invalid order Id');
             return;
         }
+    }
+
+    const orderIdChecked = await checkExistingOrderId(orderId);
+    ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
+    $('#newMultisigScreen1').style.pointerEvents = 'auto';
+    if (orderIdChecked.error) {
+        alert(orderIdChecked.error)
+        return;
     }
 
     newMultisigInfo = {
