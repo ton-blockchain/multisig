@@ -810,7 +810,11 @@ $('#newOrder_createButton').addEventListener('click', async () => {
         return;
     }
 
-    const orderId = BigInt(($('#newOrder_orderId') as HTMLInputElement).value);
+    const orderId = getBigIntFromInput($('#newOrder_orderId') as HTMLInputElement);
+    if (orderId === null || orderId < 0) {
+        alert('Invalid Order ID');
+        return;
+    }
 
     const orderTypeIndex = newOrderTypeSelect.selectedIndex;
     const orderType = orderTypes[orderTypeIndex];
@@ -927,6 +931,7 @@ const newOrderClear = () => {
     transactionToSent = null;
     newOrderTypeSelect.selectedIndex = 0;
     renderNewOrderFields(0);
+    ($('#newOrder_orderId') as HTMLInputElement).value = '';
 }
 
 

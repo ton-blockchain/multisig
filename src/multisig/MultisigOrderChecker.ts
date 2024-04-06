@@ -12,7 +12,7 @@ import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
 import {checkMultisig, MultisigInfo} from "./MultisigChecker";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
-import {intToLockType, JettonMinter} from "../jetton/JettonMinter";
+import {intToLockType, JettonMinter, lockTypeToDescription} from "../jetton/JettonMinter";
 import {CommonMessageInfoRelaxedInternal} from "@ton/core/src/types/CommonMessageInfoRelaxed";
 
 export interface MultisigOrderInfo {
@@ -165,7 +165,8 @@ export const checkMultisigOrder = async (
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseSetStatus);
             const userAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
-            return `Lock jetton wallet of user ${userAddress}. Set status ${intToLockType(parsed.action.newStatus)}; ${fromNano(parsed.tonAmount)} TON for gas`;
+            const lockType = intToLockType(parsed.action.newStatus);
+            return `Lock jetton wallet of user ${userAddress}. Set status "${lockType}" - "${lockTypeToDescription(lockType)}"; ${fromNano(parsed.tonAmount)} TON for gas`;
         } catch (e) {
         }
 
