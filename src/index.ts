@@ -796,6 +796,11 @@ const setNewOrderMode = (mode: 'fill' | 'confirm') => {
 }
 
 $('#newOrder_createButton').addEventListener('click', async () => {
+    if (!myAddress) {
+        alert('Please connect wallet');
+        return;
+    }
+
     if (newOrderMode === 'confirm') {
         if (!transactionToSent) throw new Error('')
 
@@ -863,6 +868,7 @@ $('#newOrder_createButton').addEventListener('click', async () => {
 
     if (myProposerIndex === -1 && mySignerIndex === -1) {
         alert('Error: you are not proposer and not signer');
+        setNewOrderMode('fill')
         return;
     }
 
@@ -1060,6 +1066,11 @@ $('#newMultisig1_backButton').addEventListener('click', () => {
 });
 
 $('#newMultisig2_createButton').addEventListener('click', async () => {
+    if (!myAddress) {
+        alert('Please connect wallet');
+        return;
+    }
+
     const addressMap: { [key: string]: boolean } = {};
 
     const signersAddresses: Address[] = [];
