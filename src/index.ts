@@ -9,7 +9,7 @@ import {
 } from "./utils/utils";
 import {checkMultisig, MultisigInfo} from "./multisig/MultisigChecker";
 import {checkMultisigOrder, MultisigOrderInfo} from "./multisig/MultisigOrderChecker";
-import {JettonMinter, LOCK_TYPES, lockTypeToInt} from "./jetton/JettonMinter";
+import {JettonMinter, LOCK_TYPES, LockType, lockTypeToDescription, lockTypeToInt} from "./jetton/JettonMinter";
 import {Multisig} from "./multisig/Multisig";
 import {toUnits} from "./utils/units";
 import {checkJettonMinter} from "./jetton/JettonMinterChecker";
@@ -731,7 +731,17 @@ const renderNewOrderFields = (orderTypeIndex: number): void => {
         if (orderType.fields.hasOwnProperty(fieldId)) {
             const field = orderType.fields[fieldId];
             html += `<div class="label">${field.name}:</div>`
-            html += `<input id="newOrder_${orderTypeIndex}_${fieldId}">`
+
+            if (field.type === 'Status') {
+                html += `<select id="newOrder_${orderTypeIndex}_${fieldId}">`
+                for (let i = 0; i < LOCK_TYPES.length; i++) {
+                    const lockType: LockType = LOCK_TYPES[i] as LockType;
+                    html += `<option value="${lockType}">${lockTypeToDescription(lockType)}</option>`;
+                }
+                html += `</select>`
+            } else {
+                html += `<input id="newOrder_${orderTypeIndex}_${fieldId}">`
+            }
         }
     }
 

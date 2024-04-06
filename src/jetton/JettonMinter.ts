@@ -63,6 +63,19 @@ export const intToLockType = (lockType: number): LockType => {
     }
 }
 
+export const lockTypeToDescription = (lockType: LockType) => {
+    switch (lockType) {
+        case 'unlock':
+            return 'Unlock';
+        case 'out':
+            return 'Outgoing transfers locked';
+        case 'in':
+            return 'Inbound transfers locked';
+        case 'full':
+            return 'Outgoing and Inbound transfers locked';
+    }
+}
+
 export function endParse(slice: Slice) {
     if (slice.remainingBits > 0 || slice.remainingRefs > 0) {
         throw new Error('remaining bits in data');

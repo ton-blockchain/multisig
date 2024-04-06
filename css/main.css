@@ -203,7 +203,7 @@ button:disabled, .btn:disabled {
     max-width: 600px;
 }
 
-#newOrderScreen input {
+#newOrderScreen input, #newOrderScreen select {
     width: 100%;
 }
 
