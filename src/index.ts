@@ -462,6 +462,7 @@ const checkJettonMinterAdmin = async (values: { [key: string]: any }): Promise<V
 
         return {value: jettonMinterInfo};
     } catch (e: any) {
+        console.error(e);
         return {error: 'Jetton-minter check error'};
     }
 }
@@ -470,12 +471,13 @@ const checkJettonMinterNextAdmin = async (values: { [key: string]: any }): Promi
     try {
         const jettonMinterInfo = await checkJettonMinter(values.jettonMinterAddress, IS_TESTNET, true);
 
-        if (!currentMultisigInfo.address.address.equals(jettonMinterInfo.nextAdminAddress)) {
+        if (!jettonMinterInfo.nextAdminAddress || !currentMultisigInfo.address.address.equals(jettonMinterInfo.nextAdminAddress)) {
             return {error: "Multisig is not next-admin of this jetton"};
         }
 
         return {value: jettonMinterInfo};
     } catch (e: any) {
+        console.error(e);
         return {error: 'Jetton-minter check error'};
     }
 }
@@ -490,6 +492,7 @@ const checkExistingOrderId = async (orderId: bigint): Promise<ValidatedValue> =>
             return {error: `Order ${orderId} already exists`};
         }
     } catch (e) {
+        console.error(e);
         return {error: 'Possibly connectivity error'};
     }
 }
