@@ -1013,13 +1013,15 @@ $('#newMultisig1_nextButton').addEventListener('click', async () => {
         }
 
         const orderIdChecked = await checkExistingOrderId(orderId);
-        ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
-        $('#newMultisigScreen1').style.pointerEvents = 'auto';
         if (orderIdChecked.error) {
+            ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
+            $('#newMultisigScreen1').style.pointerEvents = 'auto';
             alert(orderIdChecked.error)
             return;
         }
     }
+    ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
+    $('#newMultisigScreen1').style.pointerEvents = 'auto';
 
     newMultisigInfo = {
         signersCount,
