@@ -127,6 +127,7 @@ button:disabled, .btn:disabled {
 }
 
 #order_approveButton {
+    justify-content: center;
     margin-bottom: 10px;
 }
 
@@ -203,7 +204,7 @@ button:disabled, .btn:disabled {
     max-width: 600px;
 }
 
-#newOrderScreen input {
+#newOrderScreen input, #newOrderScreen select {
     width: 100%;
 }
 
@@ -263,6 +264,7 @@ button:disabled, .btn:disabled {
 #order_approveNote {
     color: #696969;
     text-align: center;
+    justify-content: center;
 }
 
 /* loading */
