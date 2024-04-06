@@ -1011,14 +1011,14 @@ $('#newMultisig1_nextButton').addEventListener('click', async () => {
             alert('Invalid order Id');
             return;
         }
-    }
 
-    const orderIdChecked = await checkExistingOrderId(orderId);
-    ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
-    $('#newMultisigScreen1').style.pointerEvents = 'auto';
-    if (orderIdChecked.error) {
-        alert(orderIdChecked.error)
-        return;
+        const orderIdChecked = await checkExistingOrderId(orderId);
+        ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
+        $('#newMultisigScreen1').style.pointerEvents = 'auto';
+        if (orderIdChecked.error) {
+            alert(orderIdChecked.error)
+            return;
+        }
     }
 
     newMultisigInfo = {
