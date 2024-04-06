@@ -421,6 +421,7 @@ const validateValue = (fieldName: string, value: string, fieldType: FieldType): 
                 return makeError('Invalid URL');
             }
             return makeValue(value);
+
         case 'Status':
             if (LOCK_TYPES.indexOf(value) > -1) {
                 return makeValue(value);
@@ -445,28 +446,37 @@ interface OrderType {
         body: Cell
     };
 }
+
 const AMOUNT_TO_SEND = toNano('0.2'); // 0.2 TON
 const DEFAULT_AMOUNT = toNano('0.1'); // 0.1 TON
 const DEFAULT_INTERNAL_AMOUNT = toNano('0.05'); // 0.05 TON
 
 const checkJettonMinterAdmin = async (values: { [key: string]: any }): Promise<ValidatedValue> => {
-    const jettonMinterInfo = await checkJettonMinter(values.jettonMinterAddress, IS_TESTNET, false);
+    try {
+        const jettonMinterInfo = await checkJettonMinter(values.jettonMinterAddress, IS_TESTNET, false);
 
-    if (!currentMultisigInfo.address.address.equals(jettonMinterInfo.adminAddress)) {
-        return {error: "Multisig is not admin of this jetton"};
+        if (!currentMultisigInfo.address.address.equals(jettonMinterInfo.adminAddress)) {
+            return {error: "Multisig is not admin of this jetton"};
+        }
+
+        return {value: jettonMinterInfo};
+    } catch (e: any) {
+        return {error: 'Jetton-minter check error'};
     }
-
-    return {value: jettonMinterInfo};
 }
 
 const checkJettonMinterNextAdmin = async (values: { [key: string]: any }): Promise<ValidatedValue> => {
-    const jettonMinterInfo = await checkJettonMinter(values.jettonMinterAddress, IS_TESTNET, true);
+    try {
+        const jettonMinterInfo = await checkJettonMinter(values.jettonMinterAddress, IS_TESTNET, true);
 
-    if (!currentMultisigInfo.address.address.equals(jettonMinterInfo.nextAdminAddress)) {
-        return {error: "Multisig is not admin of this jetton"};
+        if (!currentMultisigInfo.address.address.equals(jettonMinterInfo.nextAdminAddress)) {
+            return {error: "Multisig is not next-admin of this jetton"};
+        }
+
+        return {value: jettonMinterInfo};
+    } catch (e: any) {
+        return {error: 'Jetton-minter check error'};
     }
-
-    return {value: jettonMinterInfo};
 }
 
 const orderTypes: OrderType[] = [
