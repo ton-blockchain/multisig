@@ -269,7 +269,7 @@ export const checkMultisigOrder = async (
                     actionString += (`<div>#${i} - ${addressString}</div>`);
                 }
             } else {
-                actionString += '<div>No poroposers</div>'
+                actionString += '<div>No proposers</div>'
             }
 
         } else {
