@@ -185,8 +185,9 @@ const MULTISIG_ORDER_CODE = Cell.fromBase64('te6cckEBAQEAIwAIQgJjBagGHIVsLM8F3LD
 
 let currentMultisigAddress: string | undefined = undefined;
 let currentMultisigInfo: MultisigInfo | undefined = undefined;
+let updateMultisigTimeoutId: any = -1;
 
-const updateMultisigImpl = async (multisigAddress: string, multisigInfo: MultisigInfo) => {
+const updateMultisigImpl = async (multisigAddress: string, multisigInfo: MultisigInfo): Promise<boolean> => {
     const {
         tonBalance,
         threshold,
@@ -213,7 +214,7 @@ const updateMultisigImpl = async (multisigAddress: string, multisigInfo: Multisi
 
     // Render
 
-    if (currentMultisigAddress !== multisigAddress) return;
+    if (currentMultisigAddress !== multisigAddress) return false;
 
     currentMultisigInfo = multisigInfo;
 
@@ -249,34 +250,40 @@ const updateMultisigImpl = async (multisigAddress: string, multisigInfo: Multisi
             setOrderId(orderId, orderAddressString);
         })
     })
+
+    return true;
 }
 
-const updateMultisig = async (multisigAddress: string) => {
+const updateMultisig = async (multisigAddress: string): Promise<boolean> => {
     try {
         // Load
 
         const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, IS_TESTNET, true, true);
 
-        await updateMultisigImpl(multisigAddress, multisigInfo);
-
-        showScreen('multisigScreen');
-        toggle($('#multisig_content'), true);
-        toggle($('#multisig_error'), false);
+        if (await updateMultisigImpl(multisigAddress, multisigInfo)) {
+            toggle($('#multisig_content'), true);
+            toggle($('#multisig_error'), false);
+        } else {
+            return false;
+        }
 
     } catch (e) {
         console.error(e);
 
         // Render error
-        if (currentMultisigAddress !== multisigAddress) return;
-        showScreen('multisigScreen');
+        if (currentMultisigAddress !== multisigAddress) return false;
         toggle($('#multisig_content'), false);
         toggle($('#multisig_error'), true);
         $('#multisig_error').innerText = e.message;
     }
+
+    updateMultisigTimeoutId = setTimeout(() => updateMultisig(multisigAddress), 5000);
+    return true;
 }
 
 const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bigint) => {
     showScreen('loadingScreen');
+    clearTimeout(updateMultisigTimeoutId);
     currentMultisigAddress = newMultisigAddress;
 
     const multisigAddress = Address.parseFriendly(newMultisigAddress);
@@ -291,7 +298,9 @@ const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bi
     toggle($('#multisig_content'), false);
     toggle($('#multisig_error'), false);
 
-    await updateMultisig(newMultisigAddress);
+    if (await updateMultisig(newMultisigAddress)) {
+        showScreen('multisigScreen');
+    }
 }
 
 
@@ -299,6 +308,7 @@ $('#multisig_logoutButton').addEventListener('click', () => {
     localStorage.removeItem('multisigAddress');
     currentMultisigInfo = undefined;
     currentMultisigAddress = undefined;
+    clearTimeout(updateMultisigTimeoutId);
     showScreen('startScreen');
 });
 
@@ -321,7 +331,7 @@ const updateApproveButton = (isApproving: boolean, isLastApprove: boolean) => {
     ($('#order_approveButton') as HTMLButtonElement).disabled = isApproving;
 }
 
-const updateOrderImpl = async (orderId: bigint, orderInfo: MultisigOrderInfo) => {
+const updateOrderImpl = async (orderId: bigint, orderInfo: MultisigOrderInfo): Promise<boolean> => {
     const {
         tonBalance,
         actions,
@@ -351,7 +361,7 @@ const updateOrderImpl = async (orderId: bigint, orderInfo: MultisigOrderInfo) =>
 
     // Render
 
-    if (currentOrderId !== orderId) return;
+    if (currentOrderId !== orderId) return false;
 
     currentOrderInfo = orderInfo;
 
@@ -389,32 +399,35 @@ const updateOrderImpl = async (orderId: bigint, orderInfo: MultisigOrderInfo) =>
     toggle($('#order_approveButton'), !isExecuted && !isExpired && !isApprovedByMe);
     toggle($('#order_approveNote'), !isExecuted && !isExpired && !isApprovedByMe);
 
+    return true;
 }
 
-const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTime: boolean) => {
+const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTime: boolean): Promise<boolean> => {
     try {
         // Load
 
         const orderInfo = await checkMultisigOrder(orderAddress, MULTISIG_ORDER_CODE, currentMultisigInfo, IS_TESTNET, isFirstTime);
 
-        await updateOrderImpl(orderId, orderInfo);
-
-        showScreen('orderScreen');
-        toggle($('#order_content'), true);
-        toggle($('#order_error'), false);
+        if (await updateOrderImpl(orderId, orderInfo)) {
+            showScreen('orderScreen');
+            toggle($('#order_content'), true);
+            toggle($('#order_error'), false);
+        } else {
+            return false;
+        }
 
     } catch (e) {
         console.error(e);
 
         // Render error
-        if (currentOrderId !== orderId) return;
-        showScreen('orderScreen');
+        if (currentOrderId !== orderId) return false;
         toggle($('#order_content'), false);
         toggle($('#order_error'), true);
         $('#order_error').innerText = e.message;
     }
 
     updateOrderTimeoutId = setTimeout(() => updateOrder(orderAddress, orderId, false), 5000);
+    return true;
 }
 
 const setOrderId = async (newOrderId: bigint, newOrderAddress?: string) => {
@@ -438,7 +451,9 @@ const setOrderId = async (newOrderId: bigint, newOrderAddress?: string) => {
     toggle($('#order_content'), false);
     toggle($('#order_error'), false);
 
-    await updateOrder(orderAddress, newOrderId, true);
+    if (await updateOrder(orderAddress, newOrderId, true)) {
+        showScreen('orderScreen');
+    }
 }
 
 $('#order_backButton').addEventListener('click', () => {
@@ -949,10 +964,10 @@ $('#newOrder_createButton').addEventListener('click', async () => {
             const result = await tonConnectUI.sendTransaction({
                 validUntil: Math.floor(Date.now() / 1000) + 60, // 1 minute
                 messages: [
-                    transactionToSent
+                    transactionToSent.message
                 ]
             });
-            showScreen('multisigScreen');
+            setOrderId(transactionToSent.orderId);
         } catch (e) {
             console.error(e);
         }
@@ -1059,9 +1074,12 @@ $('#newOrder_createButton').addEventListener('click', async () => {
     const amount = AMOUNT_TO_SEND.toString();
 
     transactionToSent = {
-        address: multisigAddressString,
-        amount: amount,
-        payload: messageBase64,  // raw one-cell BoC encoded in Base64
+        orderId: orderId,
+        message: {
+            address: multisigAddressString,
+            amount: amount,
+            payload: messageBase64,  // raw one-cell BoC encoded in Base64
+        }
     };
 
     setNewOrderMode('confirm')
@@ -1299,11 +1317,7 @@ $('#newMultisig2_createButton').addEventListener('click', async () => {
 
         try {
             const result = await tonConnectUI.sendTransaction(transaction);
-            setMultisigAddress(addressToString({
-                address: newMultisigAddress,
-                isBounceable: true,
-                isTestOnly: IS_TESTNET
-            }));
+            setMultisigAddress(formatContractAddress(newMultisigAddress));
         } catch (e) {
             console.error(e);
         }
@@ -1346,7 +1360,7 @@ $('#newMultisig2_createButton').addEventListener('click', async () => {
 
         try {
             const result = await tonConnectUI.sendTransaction(transaction);
-            setMultisigAddress(multisigAddressString);
+            setOrderId(newMultisigInfo.orderId!);
         } catch (e) {
             console.error(e);
         }

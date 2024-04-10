@@ -101,7 +101,7 @@ export const checkMultisig = async (
     // Account State and Data
 
     const result = await sendToIndex('account', {address: addressToString(multisigAddress)}, isTestnet);
-    assert(result.status === 'active', "Contract not active");
+    assert(result.status === 'active', "Contract not active. If you have just created a multisig it should appear within ~10 seconds.");
 
     assert(Cell.fromBase64(result.code).equals(multisigCode), 'The contract code DOES NOT match the multisig code from this repository');
 

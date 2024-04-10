@@ -39,7 +39,7 @@ export const checkMultisigOrder = async (
     // Account State and Data
 
     const result = await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet);
-    assert(result.status === 'active', "Contract not active");
+    assert(result.status === 'active', "Contract not active. If you have just created an order it should appear within ~10 seconds.");
 
     assert(Cell.fromBase64(result.code).equals(multisigOrderCode), 'The contract code DOES NOT match the  multisig-order code from this repository');
 
