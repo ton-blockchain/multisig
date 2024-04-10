@@ -152,8 +152,8 @@ const tonConnectUnsubscribe = tonConnectUI.onStatusChange(info => {
 // START SCREEN
 
 $('#createMultisigButton').addEventListener('click', () => {
-    newMultisigClear();
     newMultisigMode = 'create';
+    newMultisigClear();
     showScreen('newMultisigScreen1');
 });
 
