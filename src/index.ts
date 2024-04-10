@@ -298,8 +298,12 @@ let currentOrderId: bigint | undefined = undefined;
 let currentOrderInfo: MultisigOrderInfo | undefined = undefined;
 let updateOrderTimeoutId: any = -1;
 
+const updateApproveButton = (isApproving: boolean) => {
+    $('#order_approveButton').innerText = isApproving ? 'Approving..' : 'Approve';
+    ($('#order_approveButton') as HTMLButtonElement).disabled = isApproving;
+}
+
 const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTime: boolean) => {
-    console.error('update order', isFirstTime);
     try {
         // Load
 
@@ -318,12 +322,17 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
 
         const isExpired = (new Date()).getTime() > expiresAt.getTime();
 
+        let isApprovedByMe = false;
+
         let signersHTML = '';
         for (let i = 0; i < signers.length; i++) {
             const signer = signers[i];
             const addressString = await formatAddressAndUrl(signer, IS_TESTNET)
             const mask = 1 << i;
             const isSigned = approvalsMask & mask;
+            if (myAddress && isSigned && signer.equals(myAddress)) {
+                isApprovedByMe = true;
+            }
             signersHTML += (`<div>#${i} - ${addressString} - ${isSigned ? '✅' : '❌'}</div>`);
         }
 
@@ -355,8 +364,17 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
         }
         $('#order_actions').innerHTML = actionsHTML;
 
-        toggle($('#order_approveButton'), !isExecuted && !isExpired);
-        toggle($('#order_approveNote'), !isExecuted && !isExpired);
+        let approvingTime = Number(localStorage.getItem(currentMultisigAddress + '_' + currentOrderId + '_approve'));
+
+        if (Date.now() - approvingTime > 120000 && !isApprovedByMe) {
+            approvingTime = 0;
+            localStorage.removeItem(currentMultisigAddress + '_' + currentOrderId + '_approve');
+        }
+
+        updateApproveButton(!!approvingTime);
+
+        toggle($('#order_approveButton'), !isExecuted && !isExpired && !isApprovedByMe);
+        toggle($('#order_approveNote'), !isExecuted && !isExpired && !isApprovedByMe);
 
         showScreen('orderScreen');
         toggle($('#order_content'), true);
@@ -438,11 +456,15 @@ $('#order_approveButton').addEventListener('click', async () => {
         ]
     }
 
+    updateApproveButton(true);
+    localStorage.setItem(currentMultisigAddress + '_' + currentOrderId + '_approve', Date.now().toString());
+
     try {
         const result = await tonConnectUI.sendTransaction(transaction);
-        // todo: reload order page
     } catch (e) {
         console.error(e);
+        localStorage.removeItem(currentMultisigAddress + '_' + currentOrderId + '_approve');
+        updateApproveButton(false);
     }
 });
 
