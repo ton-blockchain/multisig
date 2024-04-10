@@ -25,12 +25,19 @@ export const explorerUrl = (address: string, isTestnet: boolean) => {
     return (isTestnet ? 'https://testnet.tonviewer.com/' : 'https://tonviewer.com/') + address;
 }
 
+const addressCache: {[key: string]: string} = {};
+
 export const getAddressFormat = async (address: Address, isTestnet: boolean): Promise<AddressInfo> => {
-    const s = address.toRawString();
+    const raw = address.toRawString();
 
-    const result = await sendToIndex('addressBook', {address: s}, isTestnet);
+    let friendly = addressCache[raw];
+    if (!friendly) {
+        const result = await sendToIndex('addressBook', {address: raw}, isTestnet);
+        friendly = result[raw].user_friendly;
+        addressCache[raw] = friendly;
+    }
 
-    return Address.parseFriendly(result[s].user_friendly);
+    return Address.parseFriendly(friendly);
 }
 
 export const formatAddressAndUrl = async (address: Address, isTestnet: boolean) => {

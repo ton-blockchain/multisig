@@ -1,16 +1,8 @@
-import {
-    AddressInfo,
-    addressToString,
-    assert,
-    equalsAddressLists,
-    explorerUrl,
-    formatAddressAndUrl,
-    makeAddressLink,
-} from "../utils/utils";
+import {AddressInfo, addressToString, assert, equalsAddressLists, formatAddressAndUrl,} from "../utils/utils";
 import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
-import {checkMultisig, MultisigInfo} from "./MultisigChecker";
+import {MultisigInfo} from "./MultisigChecker";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
 import {intToLockType, JettonMinter, lockTypeToDescription} from "../jetton/JettonMinter";
 import {CommonMessageInfoRelaxedInternal} from "@ton/core/src/types/CommonMessageInfoRelaxed";
@@ -41,6 +33,7 @@ export const checkMultisigOrder = async (
     multisigOrderCode: Cell,
     multisigInfo: MultisigInfo,
     isTestnet: boolean,
+    needAdditionalChecks: boolean,
 ): Promise<MultisigOrderInfo> => {
 
     // Account State and Data
@@ -75,21 +68,23 @@ export const checkMultisigOrder = async (
         assert(equalsAddressLists(multisigInfo.signers, parsedData.signers), "multisig signers != order signers");
     }
 
-    // Get-methods
+    if (needAdditionalChecks) {
+        // Get-methods
 
-    const provider = new MyNetworkProvider(multisigOrderAddress.address, isTestnet);
-    const multisigOrderContract: Order = Order.createFromAddress(multisigOrderAddress.address);
-    const getData = await multisigOrderContract.getOrderDataStrict(provider);
+        const provider = new MyNetworkProvider(multisigOrderAddress.address, isTestnet);
+        const multisigOrderContract: Order = Order.createFromAddress(multisigOrderAddress.address);
+        const getData = await multisigOrderContract.getOrderDataStrict(provider);
 
-    assert(getData.multisig.equals(parsedData.multisigAddress), "invalid multisigAddress");
-    assert(getData.order_seqno === parsedData.orderSeqno, "invalid orderSeqno");
-    assert(getData.threshold === parsedData.threshold, "invalid threshold");
-    assert(getData.executed === parsedData.isExecuted, "invalid isExecuted");
-    assert(equalsAddressLists(getData.signers, parsedData.signers), "invalid signers");
-    assert(getData._approvals === BigInt(parsedData.approvalsMask), "invalid approvalsMask");
-    assert(getData.approvals_num === parsedData.approvalsNum, "invalid approvalsNum");
-    assert(getData.expiration_date === BigInt(parsedData.expirationDate), "invalid expirationDate");
-    assert(getData.order.hash().equals(parsedData.order.hash()), "invalid order");
+        assert(getData.multisig.equals(parsedData.multisigAddress), "invalid multisigAddress");
+        assert(getData.order_seqno === parsedData.orderSeqno, "invalid orderSeqno");
+        assert(getData.threshold === parsedData.threshold, "invalid threshold");
+        assert(getData.executed === parsedData.isExecuted, "invalid isExecuted");
+        assert(equalsAddressLists(getData.signers, parsedData.signers), "invalid signers");
+        assert(getData._approvals === BigInt(parsedData.approvalsMask), "invalid approvalsMask");
+        assert(getData.approvals_num === parsedData.approvalsNum, "invalid approvalsNum");
+        assert(getData.expiration_date === BigInt(parsedData.expirationDate), "invalid expirationDate");
+        assert(getData.order.hash().equals(parsedData.order.hash()), "invalid order");
+    }
 
     // StateInit
 
@@ -126,7 +121,7 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseMintMessage(slice);
-            assert(parsed.internalMessage.forwardPayload.remainingBits === 0 && parsed.internalMessage.forwardPayload.remainingRefs === 0,'forward payload not supported');
+            assert(parsed.internalMessage.forwardPayload.remainingBits === 0 && parsed.internalMessage.forwardPayload.remainingRefs === 0, 'forward payload not supported');
             const toAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             return `Mint ${parsed.internalMessage.jettonAmount} jettons (in units) to ${toAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
         } catch (e) {
@@ -174,7 +169,7 @@ export const checkMultisigOrder = async (
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseTransfer);
             if (parsed.action.customPayload) throw new Error('custom payload not supported');
-            assert(parsed.action.forwardPayload.remainingBits === 0 && parsed.action.forwardPayload.remainingRefs === 0,'forward payload not supported');
+            assert(parsed.action.forwardPayload.remainingBits === 0 && parsed.action.forwardPayload.remainingRefs === 0, 'forward payload not supported');
             const fromAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             const toAddress = await formatAddressAndUrl(parsed.action.toAddress, isTestnet)
             return `Force transfer ${parsed.action.jettonAmount} jettons (in units) from user ${fromAddress} to ${toAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;

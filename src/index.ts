@@ -290,36 +290,18 @@ $('#multisig_createNewOrderButton').addEventListener('click', () => {
 
 let currentOrderId: bigint | undefined = undefined;
 let currentOrderInfo: MultisigOrderInfo | undefined = undefined;
+let updateOrderTimeoutId: any = -1;
 
-const setOrderId = async (newOrderId: bigint, newOrderAddress?: string) => {
-    currentOrderId = newOrderId;
-    showScreen('loadingScreen');
-    pushUrlState(currentMultisigAddress, newOrderId);
-
-    if (!currentMultisigInfo) throw new Error('setOrderId: no multisig info');
-
-    if (newOrderAddress === undefined) {
-        newOrderAddress = formatContractAddress(await currentMultisigInfo.multisigContract.getOrderAddress(currentMultisigInfo.provider, newOrderId));
-    }
-
-    const orderAddress = Address.parseFriendly(newOrderAddress);
-    orderAddress.isBounceable = true;
-    orderAddress.isTestOnly = IS_TESTNET;
-
-    $('#order_address').innerHTML = makeAddressLink(orderAddress);
-
-    toggle($('#order_content'), false);
-    toggle($('#order_error'), false);
-
+const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTime: boolean) => {
+    console.error('update order', isFirstTime);
     try {
         // Load
 
-        const orderInfo = await checkMultisigOrder(orderAddress, MULTISIG_ORDER_CODE, currentMultisigInfo, IS_TESTNET);
+        const orderInfo = await checkMultisigOrder(orderAddress, MULTISIG_ORDER_CODE, currentMultisigInfo, IS_TESTNET, isFirstTime);
 
         const {
             tonBalance,
             actions,
-            orderId,
             isExecuted,
             approvalsNum,
             approvalsMask,
@@ -341,7 +323,7 @@ const setOrderId = async (newOrderId: bigint, newOrderAddress?: string) => {
 
         // Render
 
-        if (currentOrderId !== newOrderId) return;
+        if (currentOrderId !== orderId) return;
 
         currentOrderInfo = orderInfo;
 
@@ -377,17 +359,44 @@ const setOrderId = async (newOrderId: bigint, newOrderAddress?: string) => {
         console.error(e);
 
         // Render error
-        if (currentOrderId !== newOrderId) return;
+        if (currentOrderId !== orderId) return;
         showScreen('orderScreen');
         toggle($('#order_error'), true);
         $('#order_error').innerText = e.message;
     }
+
+    updateOrderTimeoutId = setTimeout(() => updateOrder(orderAddress, orderId, false), 5000);
+}
+
+const setOrderId = async (newOrderId: bigint, newOrderAddress?: string) => {
+    currentOrderId = newOrderId;
+    clearTimeout(updateOrderTimeoutId);
+    showScreen('loadingScreen');
+    pushUrlState(currentMultisigAddress, newOrderId);
+
+    if (!currentMultisigInfo) throw new Error('setOrderId: no multisig info');
+
+    if (newOrderAddress === undefined) {
+        newOrderAddress = formatContractAddress(await currentMultisigInfo.multisigContract.getOrderAddress(currentMultisigInfo.provider, newOrderId));
+    }
+
+    const orderAddress = Address.parseFriendly(newOrderAddress);
+    orderAddress.isBounceable = true;
+    orderAddress.isTestOnly = IS_TESTNET;
+
+    $('#order_address').innerHTML = makeAddressLink(orderAddress);
+
+    toggle($('#order_content'), false);
+    toggle($('#order_error'), false);
+
+    await updateOrder(orderAddress, newOrderId, true);
 }
 
 $('#order_backButton').addEventListener('click', () => {
     pushUrlState(currentMultisigAddress);
     currentOrderInfo = undefined;
     currentOrderId = undefined;
+    clearTimeout(updateOrderTimeoutId);
     showScreen('multisigScreen');
 });
 
