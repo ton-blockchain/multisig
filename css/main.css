@@ -201,11 +201,20 @@ button:disabled, .btn:disabled {
     flex-direction: column;
     margin-top: 80px;
     width: 100%;
-    max-width: 600px;
+    max-width: 700px;
 }
 
 #newOrderScreen input, #newOrderScreen select {
     width: 100%;
+}
+
+.badge {
+    display: inline;
+    background-color: #0088cc;
+    color: white;
+    padding: 4px;
+    border-radius: 4px;
+    font-size: 12px;
 }
 
 /* MULTISIG SCREEN */
