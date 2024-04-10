@@ -298,8 +298,12 @@ let currentOrderId: bigint | undefined = undefined;
 let currentOrderInfo: MultisigOrderInfo | undefined = undefined;
 let updateOrderTimeoutId: any = -1;
 
-const updateApproveButton = (isApproving: boolean) => {
-    $('#order_approveButton').innerText = isApproving ? 'Approving..' : 'Approve';
+const updateApproveButton = (isApproving: boolean, isLastApprove: boolean) => {
+    if (isLastApprove) {
+        $('#order_approveButton').innerText = isApproving ? 'Executing..' : 'Execute';
+    } else {
+        $('#order_approveButton').innerText = isApproving ? 'Approving..' : 'Approve';
+    }
     ($('#order_approveButton') as HTMLButtonElement).disabled = isApproving;
 }
 
@@ -371,7 +375,7 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
             localStorage.removeItem(currentMultisigAddress + '_' + currentOrderId + '_approve');
         }
 
-        updateApproveButton(!!approvingTime);
+        updateApproveButton(!!approvingTime, approvalsNum === threshold - 1);
 
         toggle($('#order_approveButton'), !isExecuted && !isExpired && !isApprovedByMe);
         toggle($('#order_approveNote'), !isExecuted && !isExpired && !isApprovedByMe);
@@ -456,7 +460,7 @@ $('#order_approveButton').addEventListener('click', async () => {
         ]
     }
 
-    updateApproveButton(true);
+    updateApproveButton(true, currentOrderInfo.approvalsNum === currentOrderInfo.threshold - 1);
     localStorage.setItem(currentMultisigAddress + '_' + currentOrderId + '_approve', Date.now().toString());
 
     try {
@@ -464,7 +468,7 @@ $('#order_approveButton').addEventListener('click', async () => {
     } catch (e) {
         console.error(e);
         localStorage.removeItem(currentMultisigAddress + '_' + currentOrderId + '_approve');
-        updateApproveButton(false);
+        updateApproveButton(false, currentOrderInfo.approvalsNum === currentOrderInfo.threshold - 1);
     }
 });
 
