@@ -106,6 +106,7 @@ button:disabled, .btn:disabled {
 .label {
     font-weight: bold;
     flex-shrink: 0;
+    color: black !important;
 }
 
 #multisig_logoutButton {

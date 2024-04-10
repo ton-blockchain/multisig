@@ -7,7 +7,7 @@ import {
     makeAddressLink,
     validateUserFriendlyAddress
 } from "./utils/utils";
-import {checkMultisig, MultisigInfo} from "./multisig/MultisigChecker";
+import {checkMultisig, LastOrder, MultisigInfo} from "./multisig/MultisigChecker";
 import {checkMultisigOrder, MultisigOrderInfo} from "./multisig/MultisigOrderChecker";
 import {JettonMinter, LOCK_TYPES, LockType, lockTypeToDescription, lockTypeToInt} from "./jetton/JettonMinter";
 import {Multisig} from "./multisig/Multisig";
@@ -15,6 +15,7 @@ import {toUnits} from "./utils/units";
 import {checkJettonMinter} from "./jetton/JettonMinterChecker";
 import {storeStateInit} from "@ton/core/src/types/StateInit";
 import {sendToIndex} from "./utils/MyNetworkProvider";
+import {writeString} from "@ton/core/dist/boc/utils/strings";
 
 // UI COMMON
 
@@ -232,11 +233,39 @@ const updateMultisigImpl = async (multisigAddress: string, multisigInfo: Multisi
 
     $('#multisig_orderId').innerText = allowArbitraryOrderSeqno ? 'Arbitrary' : nextOderSeqno.toString();
 
+    const formatOrderType = (lastOrder: LastOrder) => {
+        switch (lastOrder.type) {
+            case 'new':
+                return 'New order';
+            case 'execute':
+                return 'Execute order';
+            case 'pending':
+                return 'Pending order';
+            case 'executed':
+                return 'Executed order'
+        }
+        throw new Error('unknown type ' + lastOrder.type)
+    }
+
     let lastOrdersHTML = '';
+    let wasPending = false;
+    let wasExecuted = false;
 
     for (const lastOrder of lastOrders) {
+        if (lastOrder.type == 'executed') {
+            if (!wasExecuted) {
+                lastOrdersHTML += '<div class="label">Executed orders:</div>'
+                wasExecuted = true;
+            }
+        } else if (lastOrder.type === 'pending') {
+            if (!wasPending) {
+                lastOrdersHTML += '<div class="label">Pending orders:</div>'
+                wasPending = true;
+            }
+        }
+
         if (!lastOrder.errorMessage) {
-            lastOrdersHTML += `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${lastOrder.type === 'new' ? 'New order' : 'Executed order'} #${lastOrder.order.id}</div>`
+            lastOrdersHTML += `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${formatOrderType(lastOrder)} #${lastOrder.order.id}</div>`
         }
     }
 
@@ -258,7 +287,7 @@ const updateMultisig = async (multisigAddress: string): Promise<boolean> => {
     try {
         // Load
 
-        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, IS_TESTNET, true, true);
+        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, IS_TESTNET, 'aggregate', true);
 
         if (await updateMultisigImpl(multisigAddress, multisigInfo)) {
             toggle($('#multisig_content'), true);

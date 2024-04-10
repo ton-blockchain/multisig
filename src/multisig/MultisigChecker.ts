@@ -67,8 +67,9 @@ const parseNewOrderOutMsg = (outMsg: any) => {
     }
 }
 
-interface LastOrder {
-    type: 'new' | 'execute';
+export interface LastOrder {
+    utime: number,
+    type: 'new' | 'execute' | 'pending' | 'executed';
     errorMessage?: string;
     order?: {
         address: AddressInfo;
@@ -94,7 +95,7 @@ export const checkMultisig = async (
     multisigAddress: AddressInfo,
     multisigCode: Cell,
     isTestnet: boolean,
-    needLastOrders: boolean,
+    lastOrdersMode: 'none' | 'history' | 'aggregate',
     needAdditionalChecks: boolean,
 ): Promise<MultisigInfo> => {
 
@@ -153,9 +154,9 @@ export const checkMultisig = async (
 
     // Last Orders
 
-    const lastOrders: LastOrder[] = [];
+    let lastOrders: LastOrder[] = [];
 
-    if (needLastOrders) {
+    if (lastOrdersMode !== 'none') {
 
         const result = await sendToIndex('transactions', {account: addressToString(multisigAddress)}, isTestnet);
 
@@ -181,6 +182,7 @@ export const checkMultisig = async (
                     }
 
                     lastOrders.push({
+                        utime: tx.now,
                         type: 'execute',
                         order: {
                             address: {
@@ -194,6 +196,7 @@ export const checkMultisig = async (
 
                 } catch (e: any) {
                     lastOrders.push({
+                        utime: tx.now,
                         type: 'execute',
                         errorMessage: e.message
                     })
@@ -229,6 +232,7 @@ export const checkMultisig = async (
                     })
 
                     lastOrders.push({
+                        utime: tx.now,
                         type: 'new',
                         order: {
                             address: {
@@ -243,11 +247,42 @@ export const checkMultisig = async (
                 } catch (e: any) {
                     console.log(e);
                     lastOrders.push({
+                        utime: tx.now,
                         type: 'new',
                         errorMessage: 'Invalid new order: ' + e.message
                     })
                 }
             }
+        }
+
+        if (lastOrdersMode === 'aggregate') {
+            const lastOrdersMap: {[key: string]: LastOrder} = {};
+            for (let lastOrder of lastOrders) {
+                if (lastOrder.errorMessage) continue;
+
+                const orderId = lastOrder.order.id.toString();
+
+                if (!lastOrdersMap[orderId]) {
+                    lastOrdersMap[orderId] = {
+                        utime: lastOrder.utime,
+                        type: lastOrder.type === 'new' ? 'pending' : 'executed',
+                        order: lastOrder.order
+                    }
+                } else {
+                    if (lastOrdersMap[orderId].type !== 'executed' && lastOrder.type === 'execute') {
+                        lastOrdersMap[orderId].utime = lastOrder.utime;
+                        lastOrdersMap[orderId].type = 'executed';
+                    }
+                }
+            }
+            lastOrders = Object.values(lastOrdersMap).sort((a, b) => {
+                if (a.type === b.type) {
+                    return b.utime - a.utime;
+                } else {
+                    if (a.type === 'pending') return -1;
+                    return 1;
+                }
+            });
         }
 
     }
