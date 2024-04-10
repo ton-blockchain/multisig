@@ -94,7 +94,8 @@ export const checkMultisig = async (
     multisigAddress: AddressInfo,
     multisigCode: Cell,
     isTestnet: boolean,
-    needLastOrders: boolean
+    needLastOrders: boolean,
+    needAdditionalChecks: boolean,
 ): Promise<MultisigInfo> => {
 
     // Account State and Data
@@ -126,16 +127,18 @@ export const checkMultisig = async (
 
     const provider = new MyNetworkProvider(multisigAddress.address, isTestnet);
 
-    const getData = await multisigContract.getMultisigData(provider);
+    if (needAdditionalChecks) {
+        const getData = await multisigContract.getMultisigData(provider);
 
-    if (parsedData.allowArbitraryOrderSeqno) {
-        assert(getData.nextOrderSeqno === BigInt(-1), "nextOderSeqno doesn't match");
-    } else {
-        assert(getData.nextOrderSeqno === parsedData.nextOderSeqno, "nextOderSeqno doesn't match");
+        if (parsedData.allowArbitraryOrderSeqno) {
+            assert(getData.nextOrderSeqno === BigInt(-1), "nextOderSeqno doesn't match");
+        } else {
+            assert(getData.nextOrderSeqno === parsedData.nextOderSeqno, "nextOderSeqno doesn't match");
+        }
+        assert(getData.threshold === BigInt(parsedData.threshold), "threshold doesn't match");
+        assert(equalsAddressLists(getData.signers, parsedData.signers), 'invalid signers');
+        assert(equalsAddressLists(getData.proposers, parsedData.proposers), 'invalid proposers');
     }
-    assert(getData.threshold === BigInt(parsedData.threshold), "threshold doesn't match");
-    assert(equalsAddressLists(getData.signers, parsedData.signers), 'invalid signers');
-    assert(equalsAddressLists(getData.proposers, parsedData.proposers), 'invalid proposers');
 
     // State Init
 

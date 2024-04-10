@@ -176,26 +176,11 @@ const MULTISIG_ORDER_CODE = Cell.fromBase64('te6cckEBAQEAIwAIQgJjBagGHIVsLM8F3LD
 let currentMultisigAddress: string | undefined = undefined;
 let currentMultisigInfo: MultisigInfo | undefined = undefined;
 
-const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bigint) => {
-    showScreen('loadingScreen');
-    currentMultisigAddress = newMultisigAddress;
-
-    const multisigAddress = Address.parseFriendly(newMultisigAddress);
-    multisigAddress.isBounceable = true;
-    multisigAddress.isTestOnly = IS_TESTNET;
-
-    $('#mulisig_address').innerHTML = makeAddressLink(multisigAddress);
-
-    // localStorage.setItem('multisigAddress', newMultisigAddress);
-    pushUrlState(newMultisigAddress, queuedOrderId);
-
-    toggle($('#multisig_content'), false);
-    toggle($('#multisig_error'), false);
-
+const updateMultisig = async (multisigAddress: string) => {
     try {
         // Load
 
-        const multisigInfo = await checkMultisig(Address.parseFriendly(newMultisigAddress), MULTISIG_CODE, IS_TESTNET, true);
+        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, IS_TESTNET, true, true);
 
         const {
             tonBalance,
@@ -223,7 +208,7 @@ const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bi
 
         // Render
 
-        if (currentMultisigAddress !== newMultisigAddress) return;
+        if (currentMultisigAddress !== multisigAddress) return;
 
         currentMultisigInfo = multisigInfo;
 
@@ -262,16 +247,37 @@ const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bi
 
         showScreen('multisigScreen');
         toggle($('#multisig_content'), true);
+        toggle($('#multisig_error'), false);
 
     } catch (e) {
         console.error(e);
 
         // Render error
-        if (currentMultisigAddress !== newMultisigAddress) return;
+        if (currentMultisigAddress !== multisigAddress) return;
         showScreen('multisigScreen');
+        toggle($('#multisig_content'), false);
         toggle($('#multisig_error'), true);
         $('#multisig_error').innerText = e.message;
     }
+}
+
+const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bigint) => {
+    showScreen('loadingScreen');
+    currentMultisigAddress = newMultisigAddress;
+
+    const multisigAddress = Address.parseFriendly(newMultisigAddress);
+    multisigAddress.isBounceable = true;
+    multisigAddress.isTestOnly = IS_TESTNET;
+
+    $('#mulisig_address').innerHTML = makeAddressLink(multisigAddress);
+
+    // localStorage.setItem('multisigAddress', newMultisigAddress);
+    pushUrlState(newMultisigAddress, queuedOrderId);
+
+    toggle($('#multisig_content'), false);
+    toggle($('#multisig_error'), false);
+
+    await updateMultisig(newMultisigAddress);
 }
 
 
@@ -354,6 +360,7 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
 
         showScreen('orderScreen');
         toggle($('#order_content'), true);
+        toggle($('#order_error'), false);
 
     } catch (e) {
         console.error(e);
@@ -361,6 +368,7 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
         // Render error
         if (currentOrderId !== orderId) return;
         showScreen('orderScreen');
+        toggle($('#order_content'), false);
         toggle($('#order_error'), true);
         $('#order_error').innerText = e.message;
     }
