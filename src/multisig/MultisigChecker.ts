@@ -1,4 +1,11 @@
-import {AddressInfo, addressToString, assert, equalsAddressLists, formatAddressAndUrl} from "../utils/utils";
+import {
+    AddressInfo,
+    addressToString,
+    assert,
+    equalsAddressLists,
+    formatAddressAndUrl,
+    getAddressFormat
+} from "../utils/utils";
 import {Address, Cell, Dictionary} from "@ton/core";
 import {endParse, Multisig, parseMultisigData} from "./Multisig";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
@@ -82,8 +89,8 @@ export interface MultisigInfo {
     address: AddressInfo;
     multisigContract: Multisig;
     provider: MyNetworkProvider;
-    signers: Address[];
-    proposers: Address[];
+    signers: AddressInfo[];
+    proposers: AddressInfo[];
     threshold: number;
     allowArbitraryOrderSeqno: boolean;
     nextOderSeqno: bigint;
@@ -123,6 +130,15 @@ export const checkMultisig = async (
     assert(signers.length === parsedData.signersCount, 'invalid signersCount');
     assert(parsedData.threshold > 0, 'threshold <= 0');
     assert(parsedData.threshold <= parsedData.signersCount, 'invalid threshold');
+
+    const signersFormatted = [];
+    for (const signer of signers) {
+        signersFormatted.push(await getAddressFormat(signer, isTestnet));
+    }
+    const proposersFormatted = [];
+    for (const proposer of proposers) {
+        proposersFormatted.push(await getAddressFormat(proposer, isTestnet));
+    }
 
     // Get-methods
 
@@ -305,8 +321,8 @@ export const checkMultisig = async (
         address: multisigAddress,
         multisigContract,
         provider,
-        signers,
-        proposers,
+        signers: signersFormatted,
+        proposers: proposersFormatted,
         threshold: parsedData.threshold,
         allowArbitraryOrderSeqno: parsedData.allowArbitraryOrderSeqno,
         nextOderSeqno: parsedData.nextOderSeqno,

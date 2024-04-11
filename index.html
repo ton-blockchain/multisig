@@ -110,35 +110,28 @@
     </div>
 </div>
 
-<div id="newMultisigScreen1" class="screen">
+<div id="newMultisigScreen" class="screen">
     <div class="panel">
         <div id="newMultisig_orderIdLabel" class="label">Order ID:</div>
         <input id="newMultisig_orderId">
 
-        <div class="label">Signers count:</div>
-        <input id="newMultisig_signersCount">
+        <div class="label">Signers:</div>
+        <div id="newMultisig_signersContainer"></div>
+        <button id="newMultisig_addSignerButton">Add signer</button>
 
-        <div class="label">Proposers count:</div>
-        <input id="newMultisig_proposersCount">
+        <div class="line"></div>
+
+        <div class="label">Proposers:</div>
+        <div id="newMultisig_proposersContainer"></div>
+        <button id="newMultisig_addProposerButton">Add proposer</button>
+
+        <div class="line"></div>
 
         <div class="label">Threshold:</div>
         <input id="newMultisig_threshold">
 
-        <button id="newMultisig1_nextButton">Next</button>
-        <button id="newMultisig1_backButton">Back</button>
-    </div>
-</div>
-
-<div id="newMultisigScreen2" class="screen">
-    <div class="panel">
-        <div class="label">Signers addresses:</div>
-        <div id="newMultisig_signers"></div>
-
-        <div id="newMultisig_proposersTitle" class="label">Proposers addresses:</div>
-        <div id="newMultisig_proposers"></div>
-
-        <button id="newMultisig2_createButton">Next</button>
-        <button id="newMultisig2_backButton">Back</button>
+        <button id="newMultisig_createButton">Next</button>
+        <button id="newMultisig_backButton">Back</button>
     </div>
 </div>
 

@@ -70,7 +70,7 @@ export const checkMultisigOrder = async (
 
     if (!parsedData.isExecuted) {
         assert(multisigInfo.threshold === parsedData.threshold, "multisig threshold != order threshold");
-        assert(equalsAddressLists(multisigInfo.signers, parsedData.signers), "multisig signers != order signers");
+        assert(equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers), "multisig signers != order signers");
     }
 
     if (needAdditionalChecks) {

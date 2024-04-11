@@ -28,9 +28,9 @@ input, select {
 }
 
 select {
-    -moz-appearance:none; /* Firefox */
-    -webkit-appearance:none; /* Safari and Chrome */
-    appearance:none;
+    -moz-appearance: none; /* Firefox */
+    -webkit-appearance: none; /* Safari and Chrome */
+    appearance: none;
 }
 
 input::-webkit-date-and-time-value {
@@ -193,7 +193,7 @@ button:disabled, .btn:disabled {
     width: 60%;
 }
 
-#multisigScreen, #newOrderScreen, #orderScreen, #newMultisigScreen1, #newMultisigScreen2 {
+#multisigScreen, #newOrderScreen, #orderScreen, #newMultisigScreen {
     align-items: center;
 }
 
@@ -275,6 +275,14 @@ button:disabled, .btn:disabled {
     color: #696969;
     text-align: center;
     justify-content: center;
+}
+
+/* new multisig */
+
+.line {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ddd;
 }
 
 /* loading */

@@ -3,7 +3,7 @@ import {THEME, TonConnectUI} from '@tonconnect/ui'
 import {
     AddressInfo,
     addressToString, equalsMsgAddresses,
-    formatAddressAndUrl,
+    formatAddressAndUrl, getAddressFormat,
     makeAddressLink,
     validateUserFriendlyAddress
 } from "./utils/utils";
@@ -15,7 +15,6 @@ import {toUnits} from "./utils/units";
 import {checkJettonMinter} from "./jetton/JettonMinterChecker";
 import {storeStateInit} from "@ton/core/src/types/StateInit";
 import {sendToIndex} from "./utils/MyNetworkProvider";
-import {writeString} from "@ton/core/dist/boc/utils/strings";
 
 // UI COMMON
 
@@ -90,14 +89,13 @@ type ScreenType =
     | 'multisigScreen'
     | 'newOrderScreen'
     | 'orderScreen'
-    | 'newMultisigScreen1'
-    | 'newMultisigScreen2'
+    | 'newMultisigScreen'
     | 'loadingScreen';
 
 let currentScreen: ScreenType = 'startScreen';
 
 const showScreen = (name: ScreenType) => {
-    const screens = ['startScreen', 'importScreen', 'multisigScreen', 'newOrderScreen', 'orderScreen', 'loadingScreen', 'newMultisigScreen1', 'newMultisigScreen2']
+    const screens = ['startScreen', 'importScreen', 'multisigScreen', 'newOrderScreen', 'orderScreen', 'loadingScreen', 'newMultisigScreen']
     currentScreen = name;
     for (const screen of screens) {
         toggle($('#' + screen), screen === name);
@@ -154,7 +152,7 @@ const tonConnectUnsubscribe = tonConnectUI.onStatusChange(info => {
 $('#createMultisigButton').addEventListener('click', () => {
     newMultisigMode = 'create';
     newMultisigClear();
-    showScreen('newMultisigScreen1');
+    showScreen('newMultisigScreen');
 });
 
 $('#importMultisigButton').addEventListener('click', () => {
@@ -199,20 +197,6 @@ const updateMultisigImpl = async (multisigAddress: string, multisigInfo: Multisi
         lastOrders
     } = multisigInfo;
 
-    let signersHTML = '';
-    for (let i = 0; i < signers.length; i++) {
-        const signer = signers[i];
-        const addressString = await formatAddressAndUrl(signer, IS_TESTNET)
-        signersHTML += (`<div>#${i} - ${addressString}${equalsMsgAddresses(signer, myAddress) ? YOU_BADGE : ''}</div>`);
-    }
-
-    let proposersHTML = '';
-    for (let i = 0; i < proposers.length; i++) {
-        const proposer = proposers[i];
-        const addressString = await formatAddressAndUrl(proposer, IS_TESTNET)
-        proposersHTML += (`<div>#${i} - ${addressString}${equalsMsgAddresses(proposer, myAddress) ? YOU_BADGE : ''}</div>`);
-    }
-
     // Render
 
     if (currentMultisigAddress !== multisigAddress) return false;
@@ -223,9 +207,21 @@ const updateMultisigImpl = async (multisigAddress: string, multisigInfo: Multisi
 
     $('#multisig_threshold').innerText = threshold + '/' + signers.length;
 
+    let signersHTML = '';
+    for (let i = 0; i < signers.length; i++) {
+        const signer = signers[i];
+        const addressString = makeAddressLink(signer);
+        signersHTML += (`<div>#${i} - ${addressString}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+    }
     $('#multisig_signersList').innerHTML = signersHTML;
 
     if (proposers.length > 0) {
+        let proposersHTML = '';
+        for (let i = 0; i < proposers.length; i++) {
+            const proposer = proposers[i];
+            const addressString = makeAddressLink(proposer)
+            proposersHTML += (`<div>#${i} - ${addressString}${equalsMsgAddresses(proposer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+        }
         $('#multisig_proposersList').innerHTML = proposersHTML;
     } else {
         $('#multisig_proposersList').innerHTML = 'No proposers';
@@ -1048,8 +1044,8 @@ $('#newOrder_createButton').addEventListener('click', async () => {
 
     const messageParams = orderType.makeMessage(values);
 
-    const myProposerIndex = currentMultisigInfo.proposers.findIndex(address => address.equals(myAddress));
-    const mySignerIndex = currentMultisigInfo.signers.findIndex(address => address.equals(myAddress));
+    const myProposerIndex = currentMultisigInfo.proposers.findIndex(address => address.address.equals(myAddress));
+    const mySignerIndex = currentMultisigInfo.signers.findIndex(address => address.address.equals(myAddress));
 
     if (myProposerIndex === -1 && mySignerIndex === -1) {
         alert('Error: you are not proposer and not signer');
@@ -1134,18 +1130,36 @@ const newOrderClear = () => {
 
 // NEW MULTISIG / EDIT MULTISIG
 
-const newMultisigSignersCountInput = $('#newMultisig_signersCount') as HTMLInputElement;
-const newMultisigProposersCountInput = $('#newMultisig_proposersCount') as HTMLInputElement;
 const newMultisigTreshoildInput = $('#newMultisig_threshold') as HTMLInputElement;
 const newMultisigOrderIdInput = $('#newMultisig_orderId') as HTMLInputElement;
 
 const newMultisigClear = () => {
-    newMultisigSignersCountInput.value = '';
-    newMultisigProposersCountInput.value = '';
-    newMultisigTreshoildInput.value = '';
+    $('#newMultisig_signersContainer').innerHTML = '';
+    $('#newMultisig_proposersContainer').innerHTML = '';
+
+    newMultisigInfo = {
+        signersCount: 0,
+        proposersCount: 0
+    };
 
     toggle($('#newMultisig_orderIdLabel'), newMultisigMode === 'update');
     toggle($('#newMultisig_orderId'), newMultisigMode === 'update');
+    $('#newMultisig_createButton').innerText = newMultisigMode === 'create' ? 'Create' : 'Update';
+
+    if (newMultisigMode === 'create') {
+        addSignerInput(0);
+        newMultisigInfo.signersCount++;
+    } else {
+        newMultisigInfo.signersCount = currentMultisigInfo.signers.length;
+        for (let i = 0; i < newMultisigInfo.signersCount; i++) {
+            addSignerInput(i, addressToString(currentMultisigInfo.signers[i]));
+        }
+        newMultisigInfo.proposersCount = currentMultisigInfo.proposers.length;
+        for (let i = 0; i < newMultisigInfo.proposersCount; i++) {
+            addProposerInput(i, addressToString(currentMultisigInfo.proposers[i]));
+        }
+        ($('#newMultisig_threshold') as HTMLInputElement).value = currentMultisigInfo.threshold.toString();
+    }
 }
 
 const getIntFromInput = (input: HTMLInputElement) => {
@@ -1180,25 +1194,83 @@ let newMultisigMode: 'create' | 'update' = 'create';
 interface NewMultisigInfo {
     signersCount: number;
     proposersCount: number;
-    threshold: number;
-    orderId?: bigint;
 }
 
 let newMultisigInfo: NewMultisigInfo | null = null;
 
-$('#newMultisig1_nextButton').addEventListener('click', async () => {
-    const signersCount = getIntFromInput(newMultisigSignersCountInput);
-    if (signersCount === null || signersCount <= 0) {
-        alert('Signers count: not valid number');
-        return;
+const addSignerInput = (i: number, value?: string) => {
+    const element = document.createElement('div');
+    element.classList.add('address-input');
+    element.innerHTML = `<div class="address-input-num">#${i}.</div> <input id="newMultisig_signer${i}" value="${value === undefined ? '' : value}">${i > 0 ? `<button id="newMultisig_deleteSigner${i}">—</button>` : ''}`;
+    $('#newMultisig_signersContainer').appendChild(element);
+    if (i > 0) {
+        element.querySelector(`#newMultisig_deleteSigner${i}`).addEventListener('click', onSignerDeleteClick);
     }
-    const proposersCount = getIntFromInput(newMultisigProposersCountInput);
-    if (proposersCount === null || proposersCount < 0) {
-        alert('Proposers count: not valid number');
-        return;
+}
+const addProposerInput = (i: number, value?: string) => {
+    const element = document.createElement('div');
+    element.classList.add('address-input');
+    element.innerHTML = `<div class="address-input-num">#${i}.</div> <input id="newMultisig_proposer${i}" value="${value === undefined ? '' : value}"><button id="newMultisig_deleteProposer${i}">—</button>`;
+    $('#newMultisig_proposersContainer').appendChild(element);
+    element.querySelector(`#newMultisig_deleteProposer${i}`).addEventListener('click', onProposerDeleteClick);
+}
+
+const onSignerDeleteClick = (event: MouseEvent) => {
+    const button = event.target as HTMLButtonElement;
+    const index = Number(button.id.slice('newMultisig_deleteSigner'.length));
+    console.log(button.id, index);
+
+    const signers: string[] = [];
+    for (let i = 0; i < newMultisigInfo.signersCount; i++) {
+        const input = $(`#newMultisig_signer${i}`) as HTMLInputElement;
+        signers.push(input.value);
     }
+    signers.splice(index, 1);
+    newMultisigInfo.signersCount--;
+    $('#newMultisig_signersContainer').innerHTML = '';
+    for (let i = 0; i < newMultisigInfo.signersCount; i++) {
+        addSignerInput(i, signers[i]);
+    }
+}
+const onProposerDeleteClick = (event: MouseEvent) => {
+    const button = event.target as HTMLButtonElement;
+    const index = Number(button.id.slice('newMultisig_deleteProposer'.length));
+    console.log(button.id, index);
+
+    const proposers: string[] = [];
+    for (let i = 0; i < newMultisigInfo.proposersCount; i++) {
+        const input = $(`#newMultisig_proposer${i}`) as HTMLInputElement;
+        proposers.push(input.value);
+    }
+    proposers.splice(index, 1);
+    newMultisigInfo.proposersCount--;
+    $('#newMultisig_proposersContainer').innerHTML = '';
+    for (let i = 0; i < newMultisigInfo.proposersCount; i++) {
+        addProposerInput(i, proposers[i]);
+    }
+}
+
+$('#newMultisig_addSignerButton').addEventListener('click', async () => {
+    addSignerInput(newMultisigInfo.signersCount);
+    newMultisigInfo.signersCount++;
+});
+
+$('#newMultisig_addProposerButton').addEventListener('click', async () => {
+    addProposerInput(newMultisigInfo.proposersCount);
+    newMultisigInfo.proposersCount++;
+});
+
+$('#newMultisig_backButton').addEventListener('click', () => {
+    if (newMultisigMode === 'create') {
+        showScreen('startScreen');
+    } else {
+        showScreen('multisigScreen');
+    }
+});
+
+$('#newMultisig_createButton').addEventListener('click', async () => {
     const threshold = getIntFromInput(newMultisigTreshoildInput);
-    if (threshold === null || threshold <= 0 || threshold > signersCount) {
+    if (threshold === null || threshold <= 0 || threshold > newMultisigInfo.signersCount) {
         alert('Threshold count: not valid number');
         return;
     }
@@ -1211,50 +1283,17 @@ $('#newMultisig1_nextButton').addEventListener('click', async () => {
             return;
         }
 
-        ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = true;
-        $('#newMultisigScreen1').style.pointerEvents = 'none';
+        ($('#newMultisig_createButton') as HTMLButtonElement).disabled = true;
+        $('#newMultisigScreen').style.pointerEvents = 'none';
         const orderIdChecked = await checkExistingOrderId(orderId);
-        ($('#newMultisig1_nextButton') as HTMLButtonElement).disabled = false;
-        $('#newMultisigScreen1').style.pointerEvents = 'auto';
+        ($('#newMultisig_createButton') as HTMLButtonElement).disabled = false;
+        $('#newMultisigScreen').style.pointerEvents = 'auto';
         if (orderIdChecked.error) {
             alert(orderIdChecked.error)
             return;
         }
     }
 
-    newMultisigInfo = {
-        signersCount,
-        proposersCount,
-        threshold,
-        orderId
-    };
-
-    let signersHTML = '';
-    for (let i = 0; i < signersCount; i++) {
-        signersHTML += `<div class="address-input"><div class="address-input-num">#${i}.</div> <input id="newMultisig_signer${i}"></div>`;
-    }
-    $('#newMultisig_signers').innerHTML = signersHTML;
-
-    let proposersHTML = '';
-    for (let i = 0; i < proposersCount; i++) {
-        proposersHTML += `<div class="address-input"><div class="address-input-num">#${i}.</div> <input id="newMultisig_proposer${i}"></div>`;
-    }
-    $('#newMultisig_proposers').innerHTML = proposersHTML;
-    $('#newMultisig_proposersTitle').innerText = proposersCount > 0 ? 'Proposers addresses:' : 'No proposers';
-
-    $('#newMultisig2_createButton').innerText = newMultisigMode === 'create' ? 'Create' : 'Update';
-    showScreen('newMultisigScreen2');
-});
-
-$('#newMultisig1_backButton').addEventListener('click', () => {
-    if (newMultisigMode === 'create') {
-        showScreen('startScreen');
-    } else {
-        showScreen('multisigScreen');
-    }
-});
-
-$('#newMultisig2_createButton').addEventListener('click', async () => {
     if (!myAddress) {
         alert('Please connect wallet');
         return;
@@ -1312,7 +1351,7 @@ $('#newMultisig2_createButton').addEventListener('click', async () => {
     if (newMultisigMode === 'create') {
 
         const newMultisig = Multisig.createFromConfig({
-            threshold: newMultisigInfo.threshold,
+            threshold: threshold,
             signers: signersAddresses,
             proposers: proposersAddresses,
             allowArbitrarySeqno: true
@@ -1352,8 +1391,8 @@ $('#newMultisig2_createButton').addEventListener('click', async () => {
             console.error(e);
         }
     } else {
-        const myProposerIndex = currentMultisigInfo.proposers.findIndex(address => address.equals(myAddress));
-        const mySignerIndex = currentMultisigInfo.signers.findIndex(address => address.equals(myAddress));
+        const myProposerIndex = currentMultisigInfo.proposers.findIndex(address => address.address.equals(myAddress));
+        const mySignerIndex = currentMultisigInfo.signers.findIndex(address => address.address.equals(myAddress));
 
         if (myProposerIndex === -1 && mySignerIndex === -1) {
             alert('Error: you are not proposer and not signer');
@@ -1367,13 +1406,13 @@ $('#newMultisig2_createButton').addEventListener('click', async () => {
         const actions = Multisig.packOrder([
             {
                 type: 'update',
-                threshold: newMultisigInfo.threshold,
+                threshold: threshold,
                 signers: signersAddresses,
                 proposers: proposersAddresses
             }
         ]);
 
-        const message = Multisig.newOrderMessage(actions, expireAt, isSigner, isSigner ? mySignerIndex : myProposerIndex, newMultisigInfo.orderId!, 0n)
+        const message = Multisig.newOrderMessage(actions, expireAt, isSigner, isSigner ? mySignerIndex : myProposerIndex, orderId, 0n)
         const messageBase64 = message.toBoc().toString('base64');
 
         const multisigAddressString = currentMultisigAddress;
@@ -1390,15 +1429,11 @@ $('#newMultisig2_createButton').addEventListener('click', async () => {
 
         try {
             const result = await tonConnectUI.sendTransaction(transaction);
-            setOrderId(newMultisigInfo.orderId!);
+            setOrderId(orderId);
         } catch (e) {
             console.error(e);
         }
     }
-});
-
-$('#newMultisig2_backButton').addEventListener('click', () => {
-    showScreen('newMultisigScreen1');
 });
 
 // UPDATE
@@ -1406,16 +1441,18 @@ $('#newMultisig2_backButton').addEventListener('click', () => {
 $('#multisig_updateButton').addEventListener('click', () => {
     newMultisigMode = 'update';
     newMultisigClear();
-    showScreen('newMultisigScreen1');
+    showScreen('newMultisigScreen');
 });
 
-// INIT
+// START
 
 const tryLoadMultisigFromLocalStorage = () => {
     const multisigAddress: string = localStorage.getItem('multisigAddress');
 
     if (!multisigAddress) {
-        showScreen('startScreen');
+        newMultisigMode = 'create';
+        newMultisigClear();
+        showScreen('newMultisigScreen');
     } else {
         setMultisigAddress(multisigAddress);
     }
