@@ -1240,6 +1240,7 @@ $('#newMultisig1_nextButton').addEventListener('click', async () => {
         proposersHTML += `<div class="address-input"><div class="address-input-num">#${i}.</div> <input id="newMultisig_proposer${i}"></div>`;
     }
     $('#newMultisig_proposers').innerHTML = proposersHTML;
+    $('#newMultisig_proposersTitle').innerText = proposersCount > 0 ? 'Proposers addresses:' : 'No proposers';
 
     $('#newMultisig2_createButton').innerText = newMultisigMode === 'create' ? 'Create' : 'Update';
     showScreen('newMultisigScreen2');
