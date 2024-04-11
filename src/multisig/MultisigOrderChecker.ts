@@ -60,8 +60,13 @@ export const checkMultisigOrder = async (
 
     assert(parsedData.multisigAddress.equals(multisigInfo.address.address), "multisig address does not match");
 
-    const multisigOrderAddress2 = await multisigInfo.multisigContract.getOrderAddress(multisigInfo.provider, parsedData.orderSeqno);
-    assert(multisigOrderAddress2.equals(multisigOrderAddress.address), "fake multisig-order");
+
+    const multisigOrderToCheck = Order.createFromConfig({
+        multisig: multisigInfo.address.address,
+        orderSeqno: parsedData.orderSeqno
+    }, multisigOrderCode);
+
+    assert(multisigOrderToCheck.address.equals(multisigOrderAddress.address), "fake multisig-order");
 
     if (!parsedData.isExecuted) {
         assert(multisigInfo.threshold === parsedData.threshold, "multisig threshold != order threshold");

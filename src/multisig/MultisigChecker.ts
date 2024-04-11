@@ -3,6 +3,7 @@ import {Address, Cell, Dictionary} from "@ton/core";
 import {endParse, Multisig, parseMultisigData} from "./Multisig";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
 import {Op} from "./Constants";
+import {Order} from "./Order";
 
 const parseNewOrderInitStateBody = (cell: Cell) => {
     const slice = cell.beginParse();
@@ -94,6 +95,7 @@ export interface MultisigInfo {
 export const checkMultisig = async (
     multisigAddress: AddressInfo,
     multisigCode: Cell,
+    multisigOrderCode: Cell,
     isTestnet: boolean,
     lastOrdersMode: 'none' | 'history' | 'aggregate',
     needAdditionalChecks: boolean,
@@ -176,8 +178,14 @@ export const checkMultisig = async (
                     const queryId = inBodySlice.loadUintBig(64);
                     const orderId = inBodySlice.loadUintBig(256);
                     const orderAddress = Address.parse(tx.in_msg.source);
-                    const orderAddress2 = await multisigContract.getOrderAddress(provider, orderId)
-                    if (!orderAddress.equals(orderAddress2)) {
+
+                    const multisigOrderToCheck = Order.createFromConfig({
+                        multisig: multisigAddress.address,
+                        orderSeqno: orderId
+                    }, multisigOrderCode);
+
+
+                    if (!orderAddress.equals(multisigOrderToCheck.address)) {
                         throw new Error('fake order');
                     }
 
@@ -207,8 +215,14 @@ export const checkMultisig = async (
                     if (tx.out_msgs.length !== 1) throw new Error('invalid out messages');
                     const outMsg = tx.out_msgs[0];
                     const {orderAddress, orderId} = parseNewOrderOutMsg(outMsg);
-                    const orderAddress2 = await multisigContract.getOrderAddress(provider, orderId)
-                    if (!orderAddress.equals(orderAddress2)) {
+
+                    const multisigOrderToCheck = Order.createFromConfig({
+                        multisig: multisigAddress.address,
+                        orderSeqno: orderId
+                    }, multisigOrderCode);
+
+
+                    if (!orderAddress.equals(multisigOrderToCheck.address)) {
                         throw new Error('fake order');
                     }
 

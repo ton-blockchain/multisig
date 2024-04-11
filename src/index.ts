@@ -283,11 +283,11 @@ const updateMultisigImpl = async (multisigAddress: string, multisigInfo: Multisi
     return true;
 }
 
-const updateMultisig = async (multisigAddress: string): Promise<boolean> => {
+const updateMultisig = async (multisigAddress: string, isFirst: boolean): Promise<boolean> => {
     try {
         // Load
 
-        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, IS_TESTNET, 'aggregate', true);
+        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE, IS_TESTNET, 'aggregate', isFirst);
 
         if (await updateMultisigImpl(multisigAddress, multisigInfo)) {
             toggle($('#multisig_content'), true);
@@ -306,7 +306,7 @@ const updateMultisig = async (multisigAddress: string): Promise<boolean> => {
         $('#multisig_error').innerText = e.message;
     }
 
-    updateMultisigTimeoutId = setTimeout(() => updateMultisig(multisigAddress), 5000);
+    updateMultisigTimeoutId = setTimeout(() => updateMultisig(multisigAddress, false), 5000);
     return true;
 }
 
@@ -327,7 +327,7 @@ const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bi
     toggle($('#multisig_content'), false);
     toggle($('#multisig_error'), false);
 
-    if (await updateMultisig(newMultisigAddress)) {
+    if (await updateMultisig(newMultisigAddress, true)) {
         showScreen('multisigScreen');
     }
 }
