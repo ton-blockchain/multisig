@@ -1160,6 +1160,9 @@ const newMultisigClear = () => {
         }
         ($('#newMultisig_threshold') as HTMLInputElement).value = currentMultisigInfo.threshold.toString();
     }
+
+    newMultisigStatus = 'fill';
+    updateNewMultisigStatus();
 }
 
 const getIntFromInput = (input: HTMLInputElement) => {
@@ -1190,6 +1193,7 @@ const getBigIntFromInput = (input: HTMLInputElement) => {
 }
 
 let newMultisigMode: 'create' | 'update' = 'create';
+let newMultisigStatus: 'fill' | 'confirm' = 'fill';
 
 interface NewMultisigInfo {
     signersCount: number;
@@ -1260,15 +1264,73 @@ $('#newMultisig_addProposerButton').addEventListener('click', async () => {
     newMultisigInfo.proposersCount++;
 });
 
+const updateNewMultisigStatus = () => {
+    const isDisabled = newMultisigStatus === 'confirm';
+
+    ($('#newMultisig_orderId') as HTMLInputElement).disabled = isDisabled;
+    ($('#newMultisig_threshold') as HTMLInputElement).disabled = isDisabled;
+
+    toggle($('#newMultisig_addSignerButton'), !isDisabled);
+    toggle($('#newMultisig_addProposerButton'), !isDisabled);
+
+    for (let i = 0; i < newMultisigInfo.signersCount; i++) {
+        const input = $(`#newMultisig_signer${i}`) as HTMLInputElement;
+        input.disabled = isDisabled;
+        const deleteButton = $(`#newMultisig_deleteSigner${i}`);
+        if (deleteButton) {
+            toggle(deleteButton, !isDisabled);
+        }
+    }
+    for (let i = 0; i < newMultisigInfo.proposersCount; i++) {
+        const input = $(`#newMultisig_proposer${i}`) as HTMLInputElement;
+        input.disabled = isDisabled;
+        const deleteButton =  $(`#newMultisig_deleteProposer${i}`);
+        if (deleteButton) {
+            toggle(deleteButton, !isDisabled);
+        }
+    }
+
+    $('#newMultisig_createButton').innerText = newMultisigStatus === 'confirm' ? 'Confirm' : (newMultisigMode === 'update' ? 'Update' : 'Create');
+}
+
 $('#newMultisig_backButton').addEventListener('click', () => {
-    if (newMultisigMode === 'create') {
-        showScreen('startScreen');
+    if (newMultisigStatus === 'fill') {
+        if (newMultisigMode === 'create') {
+            showScreen('startScreen');
+        } else {
+            showScreen('multisigScreen');
+        }
     } else {
-        showScreen('multisigScreen');
+        newMultisigStatus = 'fill';
+        updateNewMultisigStatus();
     }
 });
 
+let newMultisigTransactionToSend: any | undefined = undefined;
+
 $('#newMultisig_createButton').addEventListener('click', async () => {
+    if (newMultisigStatus === 'confirm') {
+        try {
+            const result = await tonConnectUI.sendTransaction({
+                validUntil: Math.floor(Date.now() / 1000) + 60, // 1 minute
+                messages: [
+                    newMultisigTransactionToSend.message
+                ]
+            });
+
+            if (newMultisigMode === 'update') {
+                setOrderId(newMultisigTransactionToSend.orderId);
+            } else {
+                setMultisigAddress(formatContractAddress(newMultisigTransactionToSend.newMultisigAddress));
+            }
+        } catch (e) {
+            console.error(e);
+        }
+
+        return;
+    }
+
+
     const threshold = getIntFromInput(newMultisigTreshoildInput);
     if (threshold === null || threshold <= 0 || threshold > newMultisigInfo.signersCount) {
         alert('Threshold count: not valid number');
@@ -1373,23 +1435,20 @@ $('#newMultisig_createButton').addEventListener('click', async () => {
 
         console.log({stateInitCell: stateInitCell.endCell()})
 
-        const transaction = {
-            validUntil: Math.floor(Date.now() / 1000) + 60, // 1 minute
-            messages: [
+        newMultisigTransactionToSend ={
+            newMultisigAddress: newMultisigAddress,
+            message:
                 {
                     address: newMultisigAddress.toString({urlSafe: true, bounceable: true, testOnly: IS_TESTNET}),
                     amount: amount,
                     stateInit: stateInitCell.endCell().toBoc().toString('base64'),  // raw one-cell BoC encoded in Base64
                 }
-            ]
+
         }
 
-        try {
-            const result = await tonConnectUI.sendTransaction(transaction);
-            setMultisigAddress(formatContractAddress(newMultisigAddress));
-        } catch (e) {
-            console.error(e);
-        }
+        newMultisigStatus = 'confirm';
+        updateNewMultisigStatus();
+
     } else {
         const myProposerIndex = currentMultisigInfo.proposers.findIndex(address => address.address.equals(myAddress));
         const mySignerIndex = currentMultisigInfo.signers.findIndex(address => address.address.equals(myAddress));
@@ -1418,21 +1477,17 @@ $('#newMultisig_createButton').addEventListener('click', async () => {
         const multisigAddressString = currentMultisigAddress;
         const amount = DEFAULT_AMOUNT.toString();
 
-        const transaction = {
-            validUntil: Math.floor(Date.now() / 1000) + 60, // 1 minute
-            messages: [{
+        newMultisigTransactionToSend ={
+            orderId: orderId,
+            message: {
                 address: multisigAddressString,
                 amount: amount,
                 payload: messageBase64,  // raw one-cell BoC encoded in Base64
-            }]
+            }
         };
 
-        try {
-            const result = await tonConnectUI.sendTransaction(transaction);
-            setOrderId(orderId);
-        } catch (e) {
-            console.error(e);
-        }
+        newMultisigStatus = 'confirm';
+        updateNewMultisigStatus();
     }
 });
 
@@ -1450,9 +1505,7 @@ const tryLoadMultisigFromLocalStorage = () => {
     const multisigAddress: string = localStorage.getItem('multisigAddress');
 
     if (!multisigAddress) {
-        newMultisigMode = 'create';
-        newMultisigClear();
-        showScreen('newMultisigScreen');
+        showScreen('startScreen');
     } else {
         setMultisigAddress(multisigAddress);
     }
