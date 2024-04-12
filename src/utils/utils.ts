@@ -78,3 +78,9 @@ export const assert = (condition: boolean, error: string) => {
         throw new Error(error);
     }
 }
+
+export const sanitizeHTML = (text: string): string => {
+    const d = document.createElement('div');
+    d.innerText = text;
+    return d.innerHTML;
+}

@@ -4,7 +4,7 @@ import {
     assert,
     equalsAddressLists,
     formatAddressAndUrl,
-    getAddressFormat,
+    getAddressFormat, sanitizeHTML,
 } from "../utils/utils";
 import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
@@ -130,7 +130,7 @@ export const checkMultisigOrder = async (
             const op = slice.loadUint(32);
             if (op == 0) {
                 const text = slice.loadStringTail();
-                return `Send Toncoins with comment "${encodeURI(text)}"`; // todo
+                return `Send Toncoins with comment "${sanitizeHTML(text)}"`;
             }
         } catch (e) {
         }
@@ -169,7 +169,7 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseChangeContent(slice);
-            return `Change metadata URL to "${parsed.newMetadataUrl}"`; // todo
+            return `Change metadata URL to "${sanitizeHTML(parsed.newMetadataUrl)}"`;
         } catch (e) {
         }
 
