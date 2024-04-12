@@ -285,6 +285,10 @@ button:disabled, .btn:disabled {
     border-bottom: 1px solid #ddd;
 }
 
+#newMultisig_addProposerButton, #newMultisig_addSignerButton {
+    padding-left: 0;
+}
+
 /* loading */
 
 #loadingScreen {
