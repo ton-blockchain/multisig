@@ -1,4 +1,11 @@
-import {AddressInfo, addressToString, assert, equalsAddressLists, formatAddressAndUrl,} from "../utils/utils";
+import {
+    AddressInfo,
+    addressToString,
+    assert,
+    equalsAddressLists,
+    formatAddressAndUrl,
+    getAddressFormat,
+} from "../utils/utils";
 import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
@@ -15,7 +22,7 @@ export interface MultisigOrderInfo {
     approvalsNum: number;
     approvalsMask: number;
     threshold: number;
-    signers: Address[];
+    signers: AddressInfo[];
     expiresAt: Date;
     actions: string[];
     stateInitMatches: boolean;
@@ -55,6 +62,11 @@ export const checkMultisigOrder = async (
     checkNumber(parsedData.approvalsNum);
     assert(parsedData.approvalsNum <= parsedData.signers.length, "approvalsNum invalid")
     checkNumber(parsedData.expirationDate);
+
+    const signersFormatted = [];
+    for (const signer of parsedData.signers) {
+        signersFormatted.push(await getAddressFormat(signer, isTestnet));
+    }
 
     // Check in multisig
 
@@ -287,7 +299,7 @@ export const checkMultisigOrder = async (
         approvalsNum: parsedData.approvalsNum,
         approvalsMask: parsedData.approvalsMask,
         threshold: parsedData.threshold,
-        signers: parsedData.signers,
+        signers: signersFormatted,
         expiresAt: new Date(parsedData.expirationDate * 1000),
         actions: parsedActions,
         stateInitMatches

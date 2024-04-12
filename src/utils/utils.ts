@@ -7,7 +7,7 @@ export interface AddressInfo {
     address: Address;
 }
 
-export const validateUserFriendlyAddress = (s: string, isTestnet: boolean) => {
+export const validateUserFriendlyAddress = (s: string, isTestnet: boolean): string | null => {
     if (Address.isFriendly(s)) {
         const address = Address.parseFriendly(s);
         if (address.isTestOnly && !isTestnet) {
