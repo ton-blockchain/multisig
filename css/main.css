@@ -210,12 +210,15 @@ button:disabled, .btn:disabled {
 }
 
 .badge {
-    display: inline;
+    display: inline-block;
     background-color: #0088cc;
     color: white;
     padding: 4px;
     border-radius: 4px;
     font-size: 12px;
+    height: 20px;
+    line-height: 12px;
+    transform: translateY(-2px);
 }
 
 /* MULTISIG SCREEN */
