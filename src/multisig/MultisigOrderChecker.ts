@@ -116,7 +116,7 @@ export const checkMultisigOrder = async (
 
     const actions = Dictionary.loadDirect(Dictionary.Keys.Uint(8), Dictionary.Values.Cell(), parsedData.order);
 
-    const parseActionBody = async (cell: Cell) => {
+    const parseActionBody = async (cell: Cell): Promise<string> => {
         try {
             const slice = cell.beginParse();
             if (slice.remainingBits === 0 && slice.remainingRefs == 0) {
@@ -130,7 +130,7 @@ export const checkMultisigOrder = async (
             const op = slice.loadUint(32);
             if (op == 0) {
                 const text = slice.loadStringTail();
-                return `Send Toncoins with comment "${encodeURI(text)}"`;
+                return `Send Toncoins with comment "${encodeURI(text)}"`; // todo
             }
         } catch (e) {
         }
@@ -169,7 +169,7 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseChangeContent(slice);
-            return `Change metadata URL to "${parsed.newMetadataUrl}"`;
+            return `Change metadata URL to "${parsed.newMetadataUrl}"`; // todo
         } catch (e) {
         }
 

@@ -15,6 +15,7 @@ import {toUnits} from "./utils/units";
 import {checkJettonMinter} from "./jetton/JettonMinterChecker";
 import {storeStateInit} from "@ton/core/src/types/StateInit";
 import {sendToIndex} from "./utils/MyNetworkProvider";
+import {Order} from "./multisig/Order";
 
 // UI COMMON
 
@@ -22,21 +23,21 @@ const $ = (selector: string): HTMLElement | null => document.querySelector(selec
 
 const $$ = (selector: string): NodeListOf<HTMLElement> => document.querySelectorAll(selector);
 
-const toggle = (element: HTMLElement, isVisible: boolean) => {
+const toggle = (element: HTMLElement, isVisible: boolean): void => {
     element.style.display = isVisible ? 'flex' : 'none';
 }
 
-const YOU_BADGE = ` <div class="badge">It's you</div>`
+const YOU_BADGE: string = ` <div class="badge">It's you</div>`
 
 // URL STATE
 
-const clearUrlState = () => {
+const clearUrlState = (): void => {
     if (window.history.state !== '') {
         window.history.pushState('', 'TON Multisig', '#');
     }
 }
 
-const pushUrlState = (multisigAddress: string, orderId?: bigint) => {
+const pushUrlState = (multisigAddress: string, orderId?: bigint): void => {
     let url = multisigAddress;
     if (orderId !== undefined) {
         url += '/' + orderId;
@@ -49,9 +50,9 @@ const pushUrlState = (multisigAddress: string, orderId?: bigint) => {
 // TESTNET, LANGUAGE
 
 const browserLang: string = navigator.language;
-const lang = (browserLang === 'ru-RU') || (browserLang === 'ru') || (browserLang === 'be-BY') || (browserLang === 'be') || (browserLang === 'kk-KZ') || (browserLang === 'kk') ? 'ru' : 'en';
+const lang: 'ru' | 'en' = (browserLang === 'ru-RU') || (browserLang === 'ru') || (browserLang === 'be-BY') || (browserLang === 'be') || (browserLang === 'kk-KZ') || (browserLang === 'kk') ? 'ru' : 'en';
 
-const IS_TESTNET = window.location.href.indexOf('testnet=true') > -1;
+const IS_TESTNET: boolean = window.location.href.indexOf('testnet=true') > -1;
 
 if (IS_TESTNET) {
     $('.testnet-badge').style.display = 'block';
@@ -75,7 +76,7 @@ type ScreenType =
 
 let currentScreen: ScreenType = 'startScreen';
 
-const showScreen = (name: ScreenType) => {
+const showScreen = (name: ScreenType): void => {
     const screens = ['startScreen', 'importScreen', 'multisigScreen', 'newOrderScreen', 'orderScreen', 'newMultisigScreen', 'loadingScreen']
     currentScreen = name;
     for (const screen of screens) {
@@ -164,7 +165,7 @@ let currentMultisigAddress: string | undefined = undefined;
 let currentMultisigInfo: MultisigInfo | undefined = undefined;
 let updateMultisigTimeoutId: any = -1;
 
-const clearMultisig = () => {
+const clearMultisig = (): void => {
     currentMultisigAddress = undefined;
     currentMultisigInfo = undefined;
     clearTimeout(updateMultisigTimeoutId);
@@ -181,9 +182,15 @@ const renderCurrentMultisigInfo = (): void => {
         lastOrders
     } = currentMultisigInfo;
 
+    // Render Multisig Info
+
     $('#multisig_tonBalance').innerText = fromNano(tonBalance) + ' TON';
 
     $('#multisig_threshold').innerText = threshold + '/' + signers.length;
+
+    $('#multisig_orderId').innerText = allowArbitraryOrderSeqno ? 'Arbitrary' : nextOderSeqno.toString();
+
+    // Signers
 
     let signersHTML = '';
     for (let i = 0; i < signers.length; i++) {
@@ -192,6 +199,8 @@ const renderCurrentMultisigInfo = (): void => {
         signersHTML += (`<div>#${i} - ${addressString}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
     }
     $('#multisig_signersList').innerHTML = signersHTML;
+
+    // Proposers
 
     if (proposers.length > 0) {
         let proposersHTML = '';
@@ -205,9 +214,9 @@ const renderCurrentMultisigInfo = (): void => {
         $('#multisig_proposersList').innerHTML = 'No proposers';
     }
 
-    $('#multisig_orderId').innerText = allowArbitraryOrderSeqno ? 'Arbitrary' : nextOderSeqno.toString();
+    // Render Last Orders
 
-    const formatOrderType = (lastOrder: LastOrder) => {
+    const formatOrderType = (lastOrder: LastOrder): string => {
         switch (lastOrder.type) {
             case 'new':
                 return 'New order';
@@ -218,7 +227,7 @@ const renderCurrentMultisigInfo = (): void => {
             case 'executed':
                 return 'Executed order'
         }
-        throw new Error('unknown type ' + lastOrder.type)
+        throw new Error('unknown order type ' + lastOrder.type);
     }
 
     let lastOrdersHTML = '';
@@ -239,7 +248,7 @@ const renderCurrentMultisigInfo = (): void => {
         }
 
         if (!lastOrder.errorMessage) {
-            lastOrdersHTML += `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${formatOrderType(lastOrder)} #${lastOrder.order.id}</div>`
+            lastOrdersHTML += `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${formatOrderType(lastOrder)} #${lastOrder.order.id}</div>`;
         }
     }
 
@@ -252,17 +261,18 @@ const renderCurrentMultisigInfo = (): void => {
             const orderId = BigInt(attributes.getNamedItem('order-id').value);
             setOrderId(orderId, orderAddressString);
         })
-    })
+    });
 }
 
-const updateMultisig = async (multisigAddress: string, isFirst: boolean): Promise<boolean> => {
+const updateMultisig = async (multisigAddress: string, isFirst: boolean): Promise<void> => {
     try {
         // Load
 
         const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE, IS_TESTNET, 'aggregate', isFirst);
 
-        if (currentMultisigAddress !== multisigAddress) return false;
+        // Render if still relevant
 
+        if (currentMultisigAddress !== multisigAddress) return;
         currentMultisigInfo = multisigInfo;
 
         renderCurrentMultisigInfo();
@@ -272,37 +282,35 @@ const updateMultisig = async (multisigAddress: string, isFirst: boolean): Promis
     } catch (e) {
         console.error(e);
 
-        // Render error
-        if (currentMultisigAddress !== multisigAddress) return false;
+        // Render error if still relevant
+        if (currentMultisigAddress !== multisigAddress) return;
         toggle($('#multisig_content'), false);
         toggle($('#multisig_error'), true);
         $('#multisig_error').innerText = e.message;
     }
 
+    clearTimeout(updateMultisigTimeoutId);
     updateMultisigTimeoutId = setTimeout(() => updateMultisig(multisigAddress, false), 5000);
-    return true;
+
+    if (isFirst) {
+        showScreen('multisigScreen');
+    }
 }
 
-const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bigint) => {
+const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bigint): Promise<void> => {
     showScreen('loadingScreen');
-    clearTimeout(updateMultisigTimeoutId);
+    clearMultisig();
+
     currentMultisigAddress = newMultisigAddress;
-
-    const multisigAddress = Address.parseFriendly(newMultisigAddress);
-    multisigAddress.isBounceable = true;
-    multisigAddress.isTestOnly = IS_TESTNET;
-
-    $('#mulisig_address').innerHTML = makeAddressLink(multisigAddress);
-
     localStorage.setItem('multisigAddress', newMultisigAddress);
     pushUrlState(newMultisigAddress, queuedOrderId);
 
-    toggle($('#multisig_content'), false);
-    toggle($('#multisig_error'), false);
+    const multisigAddress = Address.parseFriendly(currentMultisigAddress);
+    multisigAddress.isBounceable = true;
+    multisigAddress.isTestOnly = IS_TESTNET;
+    $('#mulisig_address').innerHTML = makeAddressLink(multisigAddress);
 
-    if (await updateMultisig(newMultisigAddress, true)) {
-        showScreen('multisigScreen');
-    }
+    await updateMultisig(newMultisigAddress, true);
 }
 
 $('#multisig_logoutButton').addEventListener('click', () => {
@@ -325,13 +333,13 @@ let currentOrderId: bigint | undefined = undefined;
 let currentOrderInfo: MultisigOrderInfo | undefined = undefined;
 let updateOrderTimeoutId: any = -1;
 
-const clearOrder = () => {
+const clearOrder = (): void=> {
     currentOrderId = undefined;
     currentOrderInfo = undefined;
     clearTimeout(updateOrderTimeoutId);
 }
 
-const updateApproveButton = (isApproving: boolean, isLastApprove: boolean) => {
+const updateApproveButton = (isApproving: boolean, isLastApprove: boolean): void => {
     if (isLastApprove) {
         $('#order_approveButton').innerText = isApproving ? 'Executing..' : 'Execute';
     } else {
@@ -354,7 +362,6 @@ const renderCurrentOrderInfo = (): void => {
 
     const isExpired = (new Date()).getTime() > expiresAt.getTime();
 
-    $('#order_id').innerText = '#' + currentOrderId;
     $('#order_tonBalance').innerText = fromNano(tonBalance) + ' TON';
     $('#order_executed').innerText = isExecuted ? 'Yes' : 'Not yet';
     $('#order_approvals').innerText = approvalsNum + '/' + threshold;
@@ -401,59 +408,63 @@ const renderCurrentOrderInfo = (): void => {
     toggle($('#order_approveNote'), !isExecuted && !isExpired && !isApprovedByMe);
 }
 
-const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTime: boolean): Promise<boolean> => {
+const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTime: boolean): Promise<void> => {
     try {
         // Load
 
         const orderInfo = await checkMultisigOrder(orderAddress, MULTISIG_ORDER_CODE, currentMultisigInfo, IS_TESTNET, isFirstTime);
 
-        if (currentOrderId !== orderId) return false;
-
+        // Render  if still relevant
+        if (currentOrderId !== orderId) return;
         currentOrderInfo = orderInfo;
 
         renderCurrentOrderInfo();
-        showScreen('orderScreen');
         toggle($('#order_content'), true);
         toggle($('#order_error'), false);
 
     } catch (e) {
         console.error(e);
 
-        // Render error
-        if (currentOrderId !== orderId) return false;
+        // Render error if still relevant
+        if (currentOrderId !== orderId) return;
         toggle($('#order_content'), false);
         toggle($('#order_error'), true);
         $('#order_error').innerText = e.message;
     }
 
+    clearTimeout(updateMultisigTimeoutId);
     updateOrderTimeoutId = setTimeout(() => updateOrder(orderAddress, orderId, false), 5000);
-    return true;
+
+     if (isFirstTime) {
+         showScreen('orderScreen');
+     }
 }
 
-const setOrderId = async (newOrderId: bigint, newOrderAddress?: string) => {
-    currentOrderId = newOrderId;
-    clearTimeout(updateOrderTimeoutId);
-    showScreen('loadingScreen');
-    pushUrlState(currentMultisigAddress, newOrderId);
-
+const setOrderId = async (newOrderId: bigint, newOrderAddress?: string): Promise<void> => {
     if (!currentMultisigInfo) throw new Error('setOrderId: no multisig info');
 
+    showScreen('loadingScreen');
+    clearOrder();
+    currentOrderId = newOrderId;
+    pushUrlState(currentMultisigAddress, newOrderId);
+
     if (newOrderAddress === undefined) {
-        newOrderAddress = formatContractAddress(await currentMultisigInfo.multisigContract.getOrderAddress(currentMultisigInfo.provider, newOrderId));
+        const tempOrder = Order.createFromConfig({
+            multisig: Address.parseFriendly(currentMultisigAddress).address,
+            orderSeqno: newOrderId
+        }, MULTISIG_ORDER_CODE);
+
+        newOrderAddress = formatContractAddress(tempOrder.address);
     }
+
+    $('#order_id').innerText = '#' + currentOrderId;
 
     const orderAddress = Address.parseFriendly(newOrderAddress);
     orderAddress.isBounceable = true;
     orderAddress.isTestOnly = IS_TESTNET;
-
     $('#order_address').innerHTML = makeAddressLink(orderAddress);
 
-    toggle($('#order_content'), false);
-    toggle($('#order_error'), false);
-
-    if (await updateOrder(orderAddress, newOrderId, true)) {
-        showScreen('orderScreen');
-    }
+    await updateOrder(orderAddress, newOrderId, true);
 }
 
 $('#order_backButton').addEventListener('click', () => {
@@ -463,19 +474,25 @@ $('#order_backButton').addEventListener('click', () => {
 });
 
 $('#order_approveButton').addEventListener('click', async () => {
+    if (!currentMultisigAddress) throw new Error('approve !currentMultisigAddress');
+    if (!currentOrderInfo) throw new Error('approve !currentOrderInfo');
+
+    const multisigAddress = currentMultisigAddress;
+    const orderInfo = currentOrderInfo;
+
     if (!myAddress) {
         alert('Please connect wallet');
         return;
     }
 
-    const mySignerIndex = currentOrderInfo.signers.findIndex(address => address.address.equals(myAddress));
+    const mySignerIndex = orderInfo.signers.findIndex(address => address.address.equals(myAddress));
 
     if (mySignerIndex == -1) {
         alert('You are not signer');
         return;
     }
 
-    const orderAddressString = addressToString(currentOrderInfo.address);
+    const orderAddressString = addressToString(orderInfo.address);
     const amount = DEFAULT_AMOUNT.toString();
     const payload = beginCell().storeUint(0, 32).storeStringTail('approve').endCell().toBoc().toString('base64');
 
@@ -492,15 +509,18 @@ $('#order_approveButton').addEventListener('click', async () => {
         ]
     }
 
-    updateApproveButton(true, currentOrderInfo.approvalsNum === currentOrderInfo.threshold - 1);
-    localStorage.setItem(currentMultisigAddress + '_' + currentOrderId + '_approve', Date.now().toString());
+    updateApproveButton(true, orderInfo.approvalsNum === orderInfo.threshold - 1);
+    localStorage.setItem(multisigAddress + '_' + orderInfo.orderId + '_approve', Date.now().toString());
 
     try {
         const result = await tonConnectUI.sendTransaction(transaction);
     } catch (e) {
         console.error(e);
-        localStorage.removeItem(currentMultisigAddress + '_' + currentOrderId + '_approve');
-        updateApproveButton(false, currentOrderInfo.approvalsNum === currentOrderInfo.threshold - 1);
+        localStorage.removeItem(multisigAddress + '_' + orderInfo.orderId + '_approve');
+
+        if (currentMultisigAddress === multisigAddress && currentOrderId === orderInfo.orderId) {
+            updateApproveButton(false, orderInfo.approvalsNum === orderInfo.threshold - 1);
+        }
     }
 });
 
