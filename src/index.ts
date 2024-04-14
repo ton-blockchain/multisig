@@ -937,7 +937,11 @@ newOrderTypeSelect.addEventListener('change', (e) => {
 renderNewOrderFields(0);
 
 let newOrderMode: 'fill' | 'confirm' = 'fill';
-let transactionToSent: {orderId: bigint, multisigAddress: Address, message: { address: string, amount: string, stateInit?: string, payload?: string }} | undefined = undefined;
+let transactionToSent: {
+    orderId: bigint,
+    multisigAddress: Address,
+    message: { address: string, amount: string, stateInit?: string, payload?: string }
+} | undefined = undefined;
 
 const newOrderClear = () => {
     setNewOrderMode('fill');
@@ -1172,7 +1176,11 @@ interface NewMultisigInfo {
 }
 
 let newMultisigInfo: NewMultisigInfo | undefined = undefined;
-let newMultisigTransactionToSend: {orderId?: bigint, multisigAddress: Address, message: { address: string, amount: string, stateInit?: string, payload?: string }} | undefined = undefined;
+let newMultisigTransactionToSend: {
+    orderId?: bigint,
+    multisigAddress: Address,
+    message: { address: string, amount: string, stateInit?: string, payload?: string }
+} | undefined = undefined;
 
 const showNewMultisigScreen = (mode: 'create' | 'update'): void => {
     newMultisigMode = mode;
@@ -1210,18 +1218,22 @@ const newMultisigClear = (): void => {
         newMultisigTreshoildInput.value = currentMultisigInfo.threshold.toString();
     }
 
+    updateNewMultisigDeleteButtons();
     updateNewMultisigStatus();
+}
+
+const updateNewMultisigDeleteButtons = () => {
+    const deleteButton = $(`#newMultisig_deleteSigner0`);
+    toggle(deleteButton, newMultisigInfo.signersCount > 1);
 }
 
 const addSignerInput = (i: number, value?: string): void => {
     const element = document.createElement('div');
     element.classList.add('address-input');
-    element.innerHTML = `<div class="address-input-num">#${i}.</div> <input id="newMultisig_signer${i}">${i > 0 ? `<button id="newMultisig_deleteSigner${i}">—</button>` : ''}`;
+    element.innerHTML = `<div class="address-input-num">#${i}.</div> <input id="newMultisig_signer${i}"><button id="newMultisig_deleteSigner${i}">—</button>`;
     $('#newMultisig_signersContainer').appendChild(element);
     ($(`#newMultisig_signer${i}`) as HTMLInputElement).value = value === undefined ? '' : value;
-    if (i > 0) {
-        element.querySelector(`#newMultisig_deleteSigner${i}`).addEventListener('click', onSignerDeleteClick);
-    }
+    element.querySelector(`#newMultisig_deleteSigner${i}`).addEventListener('click', onSignerDeleteClick);
 }
 const addProposerInput = (i: number, value?: string): void => {
     const element = document.createElement('div');
@@ -1248,6 +1260,8 @@ const onSignerDeleteClick = (event: MouseEvent): void => {
     for (let i = 0; i < newMultisigInfo.signersCount; i++) {
         addSignerInput(i, signers[i]);
     }
+
+    updateNewMultisigDeleteButtons();
 }
 const onProposerDeleteClick = (event: MouseEvent): void => {
     const button = event.target as HTMLButtonElement;
@@ -1270,6 +1284,7 @@ const onProposerDeleteClick = (event: MouseEvent): void => {
 $('#newMultisig_addSignerButton').addEventListener('click', async () => {
     addSignerInput(newMultisigInfo.signersCount);
     newMultisigInfo.signersCount++;
+    updateNewMultisigDeleteButtons();
 });
 
 $('#newMultisig_addProposerButton').addEventListener('click', async () => {
@@ -1290,17 +1305,13 @@ const updateNewMultisigStatus = (): void => {
         const input = $(`#newMultisig_signer${i}`) as HTMLInputElement;
         input.disabled = isDisabled;
         const deleteButton = $(`#newMultisig_deleteSigner${i}`);
-        if (deleteButton) {
-            toggle(deleteButton, !isDisabled);
-        }
+        toggle(deleteButton, !isDisabled && (newMultisigInfo.signersCount > 1));
     }
     for (let i = 0; i < newMultisigInfo.proposersCount; i++) {
         const input = $(`#newMultisig_proposer${i}`) as HTMLInputElement;
         input.disabled = isDisabled;
         const deleteButton = $(`#newMultisig_deleteProposer${i}`);
-        if (deleteButton) {
-            toggle(deleteButton, !isDisabled);
-        }
+        toggle(deleteButton, !isDisabled);
     }
     updateNewMultisigCreateButton(false);
 }
