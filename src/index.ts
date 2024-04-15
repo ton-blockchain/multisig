@@ -199,7 +199,7 @@ const renderCurrentMultisigInfo = (): void => {
     for (let i = 0; i < signers.length; i++) {
         const signer = signers[i];
         const addressString = makeAddressLink(signer);
-        signersHTML += (`<div>#${i} - ${addressString}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+        signersHTML += (`<div>#${i} — ${addressString}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
     }
     $('#multisig_signersList').innerHTML = signersHTML;
 
@@ -210,7 +210,7 @@ const renderCurrentMultisigInfo = (): void => {
         for (let i = 0; i < proposers.length; i++) {
             const proposer = proposers[i];
             const addressString = makeAddressLink(proposer)
-            proposersHTML += (`<div>#${i} - ${addressString}${equalsMsgAddresses(proposer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+            proposersHTML += (`<div>#${i} — ${addressString}${equalsMsgAddresses(proposer.address, myAddress) ? YOU_BADGE : ''}</div>`);
         }
         $('#multisig_proposersList').innerHTML = proposersHTML;
     } else {
@@ -233,6 +233,32 @@ const renderCurrentMultisigInfo = (): void => {
         throw new Error('unknown order type ' + lastOrder.type);
     }
 
+    const formatOrder = (lastOrder: LastOrder): string => {
+        if (lastOrder.errorMessage) {
+            return '';
+        } else {
+            const isExpired = lastOrder.orderInfo ? (new Date()).getTime() > lastOrder.orderInfo.expiresAt.getTime() : false;
+            const actionText = isExpired ? 'Expired order ' : formatOrderType(lastOrder);
+            let text = `<span class="orderListItem_title">${actionText} #${lastOrder.order.id}</span>`;
+
+            if (lastOrder.type === 'pending' && !isExpired) {
+                text += ` — ${lastOrder.orderInfo.approvalsNum}/${lastOrder.orderInfo.threshold}`;
+            }
+
+            if (lastOrder.type === 'pending' && myAddress) {
+                const myIndex = lastOrder.orderInfo.signers.findIndex(signer => signer.address.equals(myAddress));
+                if (myIndex > -1) {
+                    const mask = 1 << myIndex;
+                    const isSigned = lastOrder.orderInfo.approvalsMask & mask;
+
+                    text += isSigned ? ' — You approved' : ` — You haven't approved yet`;
+                }
+            }
+
+            return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${text}</div>`;
+        }
+    }
+
     let lastOrdersHTML = '';
     let wasPending = false;
     let wasExecuted = false;
@@ -240,7 +266,7 @@ const renderCurrentMultisigInfo = (): void => {
     for (const lastOrder of lastOrders) {
         if (lastOrder.type == 'executed') {
             if (!wasExecuted) {
-                lastOrdersHTML += '<div class="label">Executed orders:</div>'
+                lastOrdersHTML += '<div class="label">Old orders:</div>'
                 wasExecuted = true;
             }
         } else if (lastOrder.type === 'pending') {
@@ -250,9 +276,7 @@ const renderCurrentMultisigInfo = (): void => {
             }
         }
 
-        if (!lastOrder.errorMessage) {
-            lastOrdersHTML += `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${formatOrderType(lastOrder)} #${lastOrder.order.id}</div>`;
-        }
+        lastOrdersHTML += formatOrder(lastOrder);
     }
 
     $('#mainScreen_ordersList').innerHTML = lastOrdersHTML;
@@ -379,7 +403,7 @@ const renderCurrentOrderInfo = (): void => {
         if (myAddress && isSigned && signer.address.equals(myAddress)) {
             isApprovedByMe = true;
         }
-        signersHTML += (`<div>#${i} - ${addressString} - ${isSigned ? '✅' : '❌'}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+        signersHTML += (`<div>#${i} — ${addressString} — ${isSigned ? '✅' : '❌'}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
     }
     $('#order_signersList').innerHTML = signersHTML;
 

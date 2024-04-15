@@ -237,10 +237,13 @@ button:disabled, .btn:disabled {
 }
 
 #mainScreen_ordersList div {
-    color: #0088cc;
     padding-top: 8px;
     padding-bottom: 8px;
     border-bottom: 1px solid #ebebeb;
+}
+
+.orderListItem_title {
+    color: #0088cc;
 }
 
 #multisig_error {

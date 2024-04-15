@@ -11,6 +11,7 @@ import {endParse, Multisig, parseMultisigData} from "./Multisig";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
 import {Op} from "./Constants";
 import {Order} from "./Order";
+import {checkMultisigOrder, MultisigOrderInfo} from "./MultisigOrderChecker";
 
 const parseNewOrderInitStateBody = (cell: Cell) => {
     const slice = cell.beginParse();
@@ -83,6 +84,7 @@ export interface LastOrder {
         address: AddressInfo;
         id: bigint;
     }
+    orderInfo?: MultisigOrderInfo;
 }
 
 export interface MultisigInfo {
@@ -169,6 +171,21 @@ export const checkMultisig = async (
     }, multisigCode)
 
     const stateInitMatches = multisigAddress2.address.equals(multisigAddress.address);
+
+
+    const multisigInfo: MultisigInfo = {
+        address: multisigAddress,
+        multisigContract,
+        provider,
+        signers: signersFormatted,
+        proposers: proposersFormatted,
+        threshold: parsedData.threshold,
+        allowArbitraryOrderSeqno: parsedData.allowArbitraryOrderSeqno,
+        nextOderSeqno: parsedData.nextOderSeqno,
+        tonBalance,
+        lastOrders: [],
+        stateInitMatches
+    }
 
     // Last Orders
 
@@ -305,7 +322,21 @@ export const checkMultisig = async (
                     }
                 }
             }
-            lastOrders = Object.values(lastOrdersMap).sort((a, b) => {
+
+            lastOrders = Object.values(lastOrdersMap);
+
+            for (const lastOrder of lastOrders) {
+                if (lastOrder.type === 'pending') {
+                    const orderInfo = await checkMultisigOrder(lastOrder.order.address, multisigOrderCode, multisigInfo, isTestnet, false);
+                    lastOrder.orderInfo = orderInfo;
+                    const isExpired = (new Date()).getTime() > orderInfo.expiresAt.getTime();
+                    if (isExpired) {
+                        lastOrder.type = 'executed';
+                    }
+                }
+            }
+
+            lastOrders = lastOrders.sort((a, b) => {
                 if (a.type === b.type) {
                     return b.utime - a.utime;
                 } else {
@@ -314,20 +345,9 @@ export const checkMultisig = async (
                 }
             });
         }
-
     }
 
-    return {
-        address: multisigAddress,
-        multisigContract,
-        provider,
-        signers: signersFormatted,
-        proposers: proposersFormatted,
-        threshold: parsedData.threshold,
-        allowArbitraryOrderSeqno: parsedData.allowArbitraryOrderSeqno,
-        nextOderSeqno: parsedData.nextOderSeqno,
-        tonBalance,
-        lastOrders,
-        stateInitMatches
-    }
+    multisigInfo.lastOrders = lastOrders;
+
+    return multisigInfo;
 }
