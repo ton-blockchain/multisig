@@ -176,7 +176,7 @@ export const checkMultisig = async (
 
     if (lastOrdersMode !== 'none') {
 
-        const result = await sendToIndex('transactions', {account: addressToString(multisigAddress)}, isTestnet);
+        const result = await sendToIndex('transactions', {account: addressToString(multisigAddress), limit: 256}, isTestnet);
 
         for (const tx of result.transactions) {
             if (!tx.in_msg.message_content) continue;

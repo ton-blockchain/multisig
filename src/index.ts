@@ -733,6 +733,32 @@ const orderTypes: OrderType[] = [
     },
 
     {
+        name: 'Mint Jetton',
+        fields: {
+            jettonMinterAddress: {
+                name: 'Jetton Minter Address',
+                type: 'Address'
+            },
+            amount: {
+                name: 'Jetton Amount (in units)',
+                type: 'Jetton'
+            },
+            toAddress: {
+                name: 'To Address',
+                type: 'Address'
+            }
+        },
+        check: checkJettonMinterAdmin,
+        makeMessage: async (values) => {
+            return {
+                toAddress: values.jettonMinterAddress,
+                tonAmount: DEFAULT_AMOUNT,
+                body: JettonMinter.mintMessage(values.toAddress.address, values.amount, values.jettonMinterAddress.address, currentMultisigInfo.address.address, null, 0n, DEFAULT_INTERNAL_AMOUNT)
+            };
+        }
+    },
+
+    {
         name: 'Change Jetton Admin',
         fields: {
             jettonMinterAddress: {
@@ -813,32 +839,6 @@ const orderTypes: OrderType[] = [
                 body: JettonMinter.changeContentMessage({
                     uri: values.newMetadataUrl
                 })
-            };
-        }
-    },
-
-    {
-        name: 'Mint Jetton',
-        fields: {
-            jettonMinterAddress: {
-                name: 'Jetton Minter Address',
-                type: 'Address'
-            },
-            amount: {
-                name: 'Jetton Amount (in units)',
-                type: 'Jetton'
-            },
-            toAddress: {
-                name: 'To Address',
-                type: 'Address'
-            }
-        },
-        check: checkJettonMinterAdmin,
-        makeMessage: async (values) => {
-            return {
-                toAddress: values.jettonMinterAddress,
-                tonAmount: DEFAULT_AMOUNT,
-                body: JettonMinter.mintMessage(values.toAddress.address, values.amount, values.jettonMinterAddress.address, currentMultisigInfo.address.address, null, 0n, DEFAULT_INTERNAL_AMOUNT)
             };
         }
     },
