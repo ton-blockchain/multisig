@@ -613,15 +613,17 @@ interface OrderField {
     type: FieldType;
 }
 
+interface MakeMessageResult {
+    toAddress: AddressInfo;
+    tonAmount: bigint;
+    body: Cell;
+}
+
 interface OrderType {
     name: string;
     fields: { [key: string]: OrderField };
     check?: (values: { [key: string]: any }) => Promise<ValidatedValue>;
-    makeMessage: (values: { [key: string]: any }) => Promise<{
-        toAddress: AddressInfo,
-        tonAmount: bigint,
-        body: Cell
-    }>;
+    makeMessage: (values: { [key: string]: any }) => Promise<MakeMessageResult>;
 }
 
 const AMOUNT_TO_SEND = toNano('0.2'); // 0.2 TON
@@ -715,8 +717,7 @@ const orderTypes: OrderType[] = [
                 type: 'Address'
             }
         },
-        check: undefined,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             const jettonMinterAddress: Address = values.jettonMinterAddress.address;
             const multisigAddress = currentMultisigInfo.address.address;
             const jettonMinter = JettonMinter.createFromAddress(jettonMinterAddress);
@@ -725,7 +726,7 @@ const orderTypes: OrderType[] = [
             const jettonWalletAddress = await jettonMinter.getWalletAddress(provider, multisigAddress);
 
             return {
-                toAddress: jettonWalletAddress,
+                toAddress: {address: jettonWalletAddress, isBounceable: true, isTestOnly: IS_TESTNET},
                 tonAmount: DEFAULT_AMOUNT,
                 body: JettonWallet.transferMessage(values.amount, values.toAddress.address, multisigAddress, null, 0n, null)
             }
@@ -749,7 +750,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -771,7 +772,7 @@ const orderTypes: OrderType[] = [
             },
         },
         check: checkJettonMinterAdmin,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -789,7 +790,7 @@ const orderTypes: OrderType[] = [
             },
         },
         check: checkJettonMinterNextAdmin,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -810,7 +811,7 @@ const orderTypes: OrderType[] = [
                 type: 'TON'
             },
         },
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: values.amount,
@@ -832,7 +833,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -860,7 +861,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -890,7 +891,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -916,7 +917,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: async (values) => {
+        makeMessage: async (values): Promise<MakeMessageResult> => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,

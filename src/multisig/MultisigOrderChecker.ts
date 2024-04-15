@@ -120,7 +120,7 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             if (slice.remainingBits === 0 && slice.remainingRefs == 0) {
-                return "Send Toncoins without comment";
+                return "Send Toncoins from multisig without comment";
             }
         } catch (e) {
         }
@@ -130,7 +130,7 @@ export const checkMultisigOrder = async (
             const op = slice.loadUint(32);
             if (op == 0) {
                 const text = slice.loadStringTail();
-                return `Send Toncoins with comment "${sanitizeHTML(text)}"`;
+                return `Send Toncoins from multisig with comment "${sanitizeHTML(text)}"`;
             }
         } catch (e) {
         }
@@ -172,6 +172,17 @@ export const checkMultisigOrder = async (
             return `Change metadata URL to "${sanitizeHTML(parsed.newMetadataUrl)}"`;
         } catch (e) {
         }
+
+        try {
+            const slice = cell.beginParse();
+            const parsed = JettonMinter.parseTransfer(slice);
+            if (parsed.customPayload) throw new Error('custom payload not supported');
+            assert(parsed.forwardPayload.remainingBits === 0 && parsed.forwardPayload.remainingRefs === 0, 'forward payload not supported');
+            const toAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
+            return `Transfer ${parsed.jettonAmount} jettons (in units) from multisig to user ${toAddress};`;
+        } catch (e) {
+        }
+
 
         try {
             const slice = cell.beginParse();
