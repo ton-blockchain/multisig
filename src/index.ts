@@ -199,7 +199,7 @@ const renderCurrentMultisigInfo = (): void => {
     for (let i = 0; i < signers.length; i++) {
         const signer = signers[i];
         const addressString = makeAddressLink(signer);
-        signersHTML += (`<div>#${i} — ${addressString}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+        signersHTML += (`<div>#${i + 1} — ${addressString}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
     }
     $('#multisig_signersList').innerHTML = signersHTML;
 
@@ -210,7 +210,7 @@ const renderCurrentMultisigInfo = (): void => {
         for (let i = 0; i < proposers.length; i++) {
             const proposer = proposers[i];
             const addressString = makeAddressLink(proposer)
-            proposersHTML += (`<div>#${i} — ${addressString}${equalsMsgAddresses(proposer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+            proposersHTML += (`<div>#${i + 1} — ${addressString}${equalsMsgAddresses(proposer.address, myAddress) ? YOU_BADGE : ''}</div>`);
         }
         $('#multisig_proposersList').innerHTML = proposersHTML;
     } else {
@@ -406,7 +406,7 @@ const renderCurrentOrderInfo = (): void => {
         if (myAddress && isSigned && signer.address.equals(myAddress)) {
             isApprovedByMe = true;
         }
-        signersHTML += (`<div>#${i} — ${addressString} — ${isSigned ? '✅' : '❌'}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
+        signersHTML += (`<div>#${i + 1} — ${addressString} — ${isSigned ? '✅' : '❌'}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
     }
     $('#order_signersList').innerHTML = signersHTML;
 
@@ -1307,7 +1307,7 @@ const updateNewMultisigDeleteButtons = () => {
 const addSignerInput = (i: number, value?: string): void => {
     const element = document.createElement('div');
     element.classList.add('address-input');
-    element.innerHTML = `<div class="address-input-num">#${i}.</div> <input id="newMultisig_signer${i}"><button id="newMultisig_deleteSigner${i}">—</button>`;
+    element.innerHTML = `<div class="address-input-num">#${i + 1}.</div> <input id="newMultisig_signer${i}"><button id="newMultisig_deleteSigner${i}">—</button>`;
     $('#newMultisig_signersContainer').appendChild(element);
     ($(`#newMultisig_signer${i}`) as HTMLInputElement).value = value === undefined ? '' : value;
     element.querySelector(`#newMultisig_deleteSigner${i}`).addEventListener('click', onSignerDeleteClick);
@@ -1315,7 +1315,7 @@ const addSignerInput = (i: number, value?: string): void => {
 const addProposerInput = (i: number, value?: string): void => {
     const element = document.createElement('div');
     element.classList.add('address-input');
-    element.innerHTML = `<div class="address-input-num">#${i}.</div> <input id="newMultisig_proposer${i}"><button id="newMultisig_deleteProposer${i}">—</button>`;
+    element.innerHTML = `<div class="address-input-num">#${i + 1}.</div> <input id="newMultisig_proposer${i}"><button id="newMultisig_deleteProposer${i}">—</button>`;
     $('#newMultisig_proposersContainer').appendChild(element);
     ($(`#newMultisig_proposer${i}`) as HTMLInputElement).value = value === undefined ? '' : value;
     element.querySelector(`#newMultisig_deleteProposer${i}`).addEventListener('click', onProposerDeleteClick);

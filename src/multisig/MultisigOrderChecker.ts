@@ -281,7 +281,7 @@ export const checkMultisigOrder = async (
             for (let i = 0; i < newSigners.length; i++) {
                 const signer = newSigners[i];
                 const addressString = await formatAddressAndUrl(signer, isTestnet)
-                actionString += (`<div>#${i} - ${addressString}</div>`);
+                actionString += (`<div>#${i + 1} - ${addressString}</div>`);
             }
 
             actionString += '<div>New proposers:</div>'
@@ -289,7 +289,7 @@ export const checkMultisigOrder = async (
                 for (let i = 0; i < newProposers.length; i++) {
                     const proposer = newProposers[i];
                     const addressString = await formatAddressAndUrl(proposer, isTestnet)
-                    actionString += (`<div>#${i} - ${addressString}</div>`);
+                    actionString += (`<div>#${i + 1} - ${addressString}</div>`);
                 }
             } else {
                 actionString += '<div>No proposers</div>'
