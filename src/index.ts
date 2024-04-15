@@ -458,7 +458,7 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
         $('#order_error').innerText = e.message;
     }
 
-    clearTimeout(updateMultisigTimeoutId);
+    clearTimeout(updateOrderTimeoutId);
     updateOrderTimeoutId = setTimeout(() => updateOrder(orderAddress, orderId, false), 5000);
 
     if (isFirstTime) {
