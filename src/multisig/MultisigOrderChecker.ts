@@ -29,10 +29,10 @@ export interface MultisigOrderInfo {
 }
 
 const checkNumber = (n: number) => {
-    if (n === null) throw new Error('invalid number');
-    if (n === undefined) throw new Error('invalid number');
-    if (isNaN(n)) throw new Error('invalid number');
-    if (n < 0) throw new Error('invalid number');
+    if (n === null) throw new Error('Invalid number');
+    if (n === undefined) throw new Error('Invalid number');
+    if (isNaN(n)) throw new Error('Invalid number');
+    if (n < 0) throw new Error('Invalid number');
 }
 
 export const checkMultisigOrder = async (
@@ -56,11 +56,11 @@ export const checkMultisigOrder = async (
     const parsedData = parseOrderData(data);
 
     checkNumber(parsedData.threshold);
-    assert(parsedData.threshold > 0, "Threshold <= 0")
-    assert(parsedData.threshold <= parsedData.signers.length, "Threshold invalid")
+    assert(parsedData.threshold > 0, "Threshold not positive")
+    assert(parsedData.threshold <= parsedData.signers.length, "Invalid threshold")
     checkNumber(parsedData.approvalsMask);
     checkNumber(parsedData.approvalsNum);
-    assert(parsedData.approvalsNum <= parsedData.signers.length, "ApprovalsNum invalid")
+    assert(parsedData.approvalsNum <= parsedData.signers.length, "Invalid approvalsNum ")
     checkNumber(parsedData.expirationDate);
 
     const signersFormatted = [];
@@ -81,8 +81,8 @@ export const checkMultisigOrder = async (
     assert(multisigOrderToCheck.address.equals(multisigOrderAddress.address), "Fake multisig-order");
 
     if (!parsedData.isExecuted) {
-        assert(multisigInfo.threshold <= parsedData.threshold, "Multisig threshold does not match order threshold");
-        assert(equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers), "Multisig signers does not match order signers");
+        assert(multisigInfo.threshold <= parsedData.threshold, "Multisig threshold do not match order threshold");
+        assert(equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers), "Multisig signers do not match order signers");
     }
 
     if (needAdditionalChecks) {
