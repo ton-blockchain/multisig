@@ -327,11 +327,16 @@ export const checkMultisig = async (
 
             for (const lastOrder of lastOrders) {
                 if (lastOrder.type === 'pending') {
-                    const orderInfo = await checkMultisigOrder(lastOrder.order.address, multisigOrderCode, multisigInfo, isTestnet, false);
-                    lastOrder.orderInfo = orderInfo;
-                    const isExpired = (new Date()).getTime() > orderInfo.expiresAt.getTime();
-                    if (isExpired) {
+                    try {
+                        const orderInfo = await checkMultisigOrder(lastOrder.order.address, multisigOrderCode, multisigInfo, isTestnet, false);
+                        lastOrder.orderInfo = orderInfo;
+                        const isExpired = (new Date()).getTime() > orderInfo.expiresAt.getTime();
+                        if (isExpired) {
+                            lastOrder.type = 'executed';
+                        }
+                    } catch (e) {
                         lastOrder.type = 'executed';
+                        lastOrder.errorMessage = e.message;
                     }
                 }
             }

@@ -48,7 +48,7 @@ export const checkMultisigOrder = async (
     const result = await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet);
     assert(result.status === 'active', "Contract not active. If you have just created an order it should appear within ~30 seconds.");
 
-    assert(Cell.fromBase64(result.code).equals(multisigOrderCode), 'The contract code DOES NOT match the  multisig-order code from this repository');
+    assert(Cell.fromBase64(result.code).equals(multisigOrderCode), 'The contract code DOES NOT match the multisig-order code from this repository');
 
     const tonBalance = result.balance;
 
@@ -56,11 +56,11 @@ export const checkMultisigOrder = async (
     const parsedData = parseOrderData(data);
 
     checkNumber(parsedData.threshold);
-    assert(parsedData.threshold > 0, "threshold <= 0")
-    assert(parsedData.threshold <= parsedData.signers.length, "threshold invalid")
+    assert(parsedData.threshold > 0, "Threshold <= 0")
+    assert(parsedData.threshold <= parsedData.signers.length, "Threshold invalid")
     checkNumber(parsedData.approvalsMask);
     checkNumber(parsedData.approvalsNum);
-    assert(parsedData.approvalsNum <= parsedData.signers.length, "approvalsNum invalid")
+    assert(parsedData.approvalsNum <= parsedData.signers.length, "ApprovalsNum invalid")
     checkNumber(parsedData.expirationDate);
 
     const signersFormatted = [];
@@ -70,7 +70,7 @@ export const checkMultisigOrder = async (
 
     // Check in multisig
 
-    assert(parsedData.multisigAddress.equals(multisigInfo.address.address), "multisig address does not match");
+    assert(parsedData.multisigAddress.equals(multisigInfo.address.address), "Multisig address does not match");
 
 
     const multisigOrderToCheck = Order.createFromConfig({
@@ -78,11 +78,11 @@ export const checkMultisigOrder = async (
         orderSeqno: parsedData.orderSeqno
     }, multisigOrderCode);
 
-    assert(multisigOrderToCheck.address.equals(multisigOrderAddress.address), "fake multisig-order");
+    assert(multisigOrderToCheck.address.equals(multisigOrderAddress.address), "Fake multisig-order");
 
     if (!parsedData.isExecuted) {
-        assert(multisigInfo.threshold === parsedData.threshold, "multisig threshold != order threshold");
-        assert(equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers), "multisig signers != order signers");
+        assert(multisigInfo.threshold <= parsedData.threshold, "Multisig threshold does not match order threshold");
+        assert(equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers), "Multisig signers does not match order signers");
     }
 
     if (needAdditionalChecks) {
@@ -92,15 +92,15 @@ export const checkMultisigOrder = async (
         const multisigOrderContract: Order = Order.createFromAddress(multisigOrderAddress.address);
         const getData = await multisigOrderContract.getOrderDataStrict(provider);
 
-        assert(getData.multisig.equals(parsedData.multisigAddress), "invalid multisigAddress");
-        assert(getData.order_seqno === parsedData.orderSeqno, "invalid orderSeqno");
-        assert(getData.threshold === parsedData.threshold, "invalid threshold");
-        assert(getData.executed === parsedData.isExecuted, "invalid isExecuted");
-        assert(equalsAddressLists(getData.signers, parsedData.signers), "invalid signers");
-        assert(getData._approvals === BigInt(parsedData.approvalsMask), "invalid approvalsMask");
-        assert(getData.approvals_num === parsedData.approvalsNum, "invalid approvalsNum");
-        assert(getData.expiration_date === BigInt(parsedData.expirationDate), "invalid expirationDate");
-        assert(getData.order.hash().equals(parsedData.order.hash()), "invalid order");
+        assert(getData.multisig.equals(parsedData.multisigAddress), "Invalid multisigAddress");
+        assert(getData.order_seqno === parsedData.orderSeqno, "Invalid orderSeqno");
+        assert(getData.threshold === parsedData.threshold, "Invalid threshold");
+        assert(getData.executed === parsedData.isExecuted, "Invalid isExecuted");
+        assert(equalsAddressLists(getData.signers, parsedData.signers), "Invalid signers");
+        assert(getData._approvals === BigInt(parsedData.approvalsMask), "Invalid approvalsMask");
+        assert(getData.approvals_num === parsedData.approvalsNum, "Invalid approvalsNum");
+        assert(getData.expiration_date === BigInt(parsedData.expirationDate), "Invalid expirationDate");
+        assert(getData.order.hash().equals(parsedData.order.hash()), "Invalid order");
     }
 
     // StateInit
@@ -138,7 +138,7 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseMintMessage(slice);
-            assert(parsed.internalMessage.forwardPayload.remainingBits === 0 && parsed.internalMessage.forwardPayload.remainingRefs === 0, 'forward payload not supported');
+            assert(parsed.internalMessage.forwardPayload.remainingBits === 0 && parsed.internalMessage.forwardPayload.remainingRefs === 0, 'Mint forward payload not supported');
             const toAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             return `Mint ${parsed.internalMessage.jettonAmount} jettons (in units) to ${toAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
         } catch (e) {
@@ -176,8 +176,8 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseTransfer(slice);
-            if (parsed.customPayload) throw new Error('custom payload not supported');
-            assert(parsed.forwardPayload.remainingBits === 0 && parsed.forwardPayload.remainingRefs === 0, 'forward payload not supported');
+            if (parsed.customPayload) throw new Error('Transfer custom payload not supported');
+            assert(parsed.forwardPayload.remainingBits === 0 && parsed.forwardPayload.remainingRefs === 0, 'Transfer forward payload not supported');
             const toAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             return `Transfer ${parsed.jettonAmount} jettons (in units) from multisig to user ${toAddress};`;
         } catch (e) {
@@ -196,8 +196,8 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseTransfer);
-            if (parsed.action.customPayload) throw new Error('custom payload not supported');
-            assert(parsed.action.forwardPayload.remainingBits === 0 && parsed.action.forwardPayload.remainingRefs === 0, 'forward payload not supported');
+            if (parsed.action.customPayload) throw new Error('Force transfer custom payload not supported');
+            assert(parsed.action.forwardPayload.remainingBits === 0 && parsed.action.forwardPayload.remainingRefs === 0, 'Force transfer forward payload not supported');
             const fromAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             const toAddress = await formatAddressAndUrl(parsed.action.toAddress, isTestnet)
             return `Force transfer ${parsed.action.jettonAmount} jettons (in units) from user ${fromAddress} to ${toAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
@@ -207,13 +207,13 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseBurn);
-            if (parsed.action.customPayload) throw new Error('custom payload not supported');
+            if (parsed.action.customPayload) throw new Error('Burn custom payload not supported');
             const userAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             return `Force burn ${parsed.action.jettonAmount} jettons (in units) from user ${userAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
         } catch (e) {
         }
 
-        throw new Error('Unknown action')
+        throw new Error('Unsupported action')
 
     }
 
@@ -270,9 +270,9 @@ export const checkMultisigOrder = async (
             const newProposers = slice.loadUint(1) ? cellToArray(slice.loadRef()) : [];
             endParse(slice);
 
-            assert(newSigners.length > 0, 'invalid new signers')
-            assert(newThreshold > 0, 'invalid new threshold')
-            assert(newThreshold <= newSigners.length, 'invalid new threshold')
+            assert(newSigners.length > 0, 'Invalid new signers')
+            assert(newThreshold > 0, 'Invalid new threshold')
+            assert(newThreshold <= newSigners.length, 'Invalid new threshold')
 
             actionString += `<div>Update Multisig Params</div>`
             actionString += `<div>New threshold : ${newThreshold.toString()}</div>`
@@ -296,7 +296,7 @@ export const checkMultisigOrder = async (
             }
 
         } else {
-            throw new Error('unknown action op')
+            throw new Error('Unknown action')
         }
 
         parsedActions.push(actionString);

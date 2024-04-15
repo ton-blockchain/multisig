@@ -235,7 +235,8 @@ const renderCurrentMultisigInfo = (): void => {
 
     const formatOrder = (lastOrder: LastOrder): string => {
         if (lastOrder.errorMessage) {
-            return '';
+            if (lastOrder.errorMessage.startsWith('Contract not active')) return ``;
+            return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}"><span class="orderListItem_title">Invalid Order #${lastOrder.order.id}</span> — ${lastOrder.errorMessage}</div>`;
         } else {
             const isExpired = lastOrder.orderInfo ? (new Date()).getTime() > lastOrder.orderInfo.expiresAt.getTime() : false;
             const actionText = isExpired ? 'Expired order ' : formatOrderType(lastOrder);
