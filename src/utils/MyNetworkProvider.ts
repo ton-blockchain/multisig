@@ -36,6 +36,27 @@ export const sendToIndex = async (method: string, params: any, isTestnet: boolea
     return json;
 }
 
+export const sendToTonApi = async (method: string, params: any, isTestnet: boolean) => {
+    const mainnetRpc = 'https://dev.tonapi.io/v2/';
+    const testnetRpc = 'https://testnet.tonapi.io/v2/';
+    const rpc = isTestnet ? testnetRpc : mainnetRpc;
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer AHIQH4F4Y4XR6UIAAAAOGYUHWOWLUS6ZIPEXSCLAPOMMD6FSNMPUKHCIJHIP52YTU4VKURA'
+    };
+
+    const response = await fetch(rpc + method + '?' + new URLSearchParams(params), {
+        method: 'GET',
+        headers: headers,
+    });
+    const json = await response.json();
+    if (json.error) {
+        throw new Error(json.error);
+    }
+    return json;
+}
+
 export class MyNetworkProvider implements ContractProvider {
     private contractAddress: Address;
     private isTestnet: boolean;

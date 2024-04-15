@@ -8,7 +8,7 @@ import {
 } from "../utils/utils";
 import {Address, Cell, Dictionary} from "@ton/core";
 import {endParse, Multisig, parseMultisigData} from "./Multisig";
-import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
+import {MyNetworkProvider, sendToIndex, sendToTonApi} from "../utils/MyNetworkProvider";
 import {Op} from "./Constants";
 import {Order} from "./Order";
 import {checkMultisigOrder, MultisigOrderInfo} from "./MultisigOrderChecker";
@@ -78,6 +78,7 @@ const parseNewOrderOutMsg = (outMsg: any) => {
 
 export interface LastOrder {
     utime: number,
+    transactionHash: string;
     type: 'new' | 'execute' | 'pending' | 'executed';
     errorMessage?: string;
     order?: {
@@ -224,6 +225,7 @@ export const checkMultisig = async (
 
                     lastOrders.push({
                         utime: tx.now,
+                        transactionHash: tx.hash,
                         type: 'execute',
                         order: {
                             address: {
@@ -238,6 +240,7 @@ export const checkMultisig = async (
                 } catch (e: any) {
                     lastOrders.push({
                         utime: tx.now,
+                        transactionHash: tx.hash,
                         type: 'execute',
                         errorMessage: e.message
                     })
@@ -280,6 +283,7 @@ export const checkMultisig = async (
 
                     lastOrders.push({
                         utime: tx.now,
+                        transactionHash: tx.hash,
                         type: 'new',
                         order: {
                             address: {
@@ -295,6 +299,7 @@ export const checkMultisig = async (
                     console.log(e);
                     lastOrders.push({
                         utime: tx.now,
+                        transactionHash: tx.hash,
                         type: 'new',
                         errorMessage: 'Invalid new order: ' + e.message
                     })
@@ -312,6 +317,7 @@ export const checkMultisig = async (
                 if (!lastOrdersMap[orderId]) {
                     lastOrdersMap[orderId] = {
                         utime: lastOrder.utime,
+                        transactionHash: lastOrder.transactionHash,
                         type: lastOrder.type === 'new' ? 'pending' : 'executed',
                         order: lastOrder.order
                     }
@@ -324,6 +330,33 @@ export const checkMultisig = async (
             }
 
             lastOrders = Object.values(lastOrdersMap);
+
+
+            const findFailTx = (tonApiResult: any): boolean => {
+                if (tonApiResult.transaction) {
+                    if (tonApiResult.transaction.success === false) {
+                        if (tonApiResult.transaction.in_msg.decoded_op_name !== "excess") {
+                            return true;
+                        }
+                    }
+                }
+                if (tonApiResult.children) {
+                    for (let child of tonApiResult.children) {
+                        if (findFailTx(child)) return true;
+                    }
+                }
+                return false;
+            }
+
+            for (const lastOrder of lastOrders) {
+                if (lastOrder.type === 'executed') {
+                    const transactionHashHex = Buffer.from(lastOrder.transactionHash, 'base64').toString('hex');
+                    const result = await sendToTonApi('traces/' + transactionHashHex, {}, isTestnet);
+                    if (findFailTx(result)) {
+                        lastOrder.errorMessage = 'Failed';
+                    }
+                }
+            }
 
             for (const lastOrder of lastOrders) {
                 if (lastOrder.type === 'pending') {
