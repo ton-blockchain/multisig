@@ -978,13 +978,26 @@ let transactionToSent: {
     message: { address: string, amount: string, stateInit?: string, payload?: string }
 } | undefined = undefined;
 
+const getNewOrderId = (): string => {
+    if (!currentMultisigInfo) return '';
+
+    let highestOrderId = -1n;
+    currentMultisigInfo.lastOrders.forEach(lastOrder => {
+        if (lastOrder.order.id > highestOrderId) {
+            highestOrderId = lastOrder.order.id;
+        }
+    });
+    return highestOrderId === -1n ? '' : (highestOrderId + 1n).toString();
+}
+
 const newOrderClear = () => {
     setNewOrderMode('fill');
     transactionToSent = undefined;
 
     newOrderTypeSelect.selectedIndex = 0;
     renderNewOrderFields(0);
-    ($('#newOrder_orderId') as HTMLInputElement).value = '';
+
+    ($('#newOrder_orderId') as HTMLInputElement).value = getNewOrderId();
 }
 
 const updateNewOrderButtons = (isDisabled: boolean) => {
@@ -1232,7 +1245,7 @@ const newMultisigClear = (): void => {
 
     $('#newMultisig_signersContainer').innerHTML = '';
     $('#newMultisig_proposersContainer').innerHTML = '';
-    newMultisigOrderIdInput.value = '';
+    newMultisigOrderIdInput.value = getNewOrderId();
     newMultisigTreshoildInput.value = '';
 
     toggle($('#newMultisig_orderIdLabel'), newMultisigMode === 'update');
