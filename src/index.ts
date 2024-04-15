@@ -14,8 +14,9 @@ import {Multisig} from "./multisig/Multisig";
 import {toUnits} from "./utils/units";
 import {checkJettonMinter} from "./jetton/JettonMinterChecker";
 import {storeStateInit} from "@ton/core/src/types/StateInit";
-import {sendToIndex} from "./utils/MyNetworkProvider";
+import {MyNetworkProvider, sendToIndex} from "./utils/MyNetworkProvider";
 import {Order} from "./multisig/Order";
+import {JettonWallet} from "./jetton/JettonWallet";
 
 // UI COMMON
 
@@ -616,11 +617,11 @@ interface OrderType {
     name: string;
     fields: { [key: string]: OrderField };
     check?: (values: { [key: string]: any }) => Promise<ValidatedValue>;
-    makeMessage: (values: { [key: string]: any }) => {
+    makeMessage: (values: { [key: string]: any }) => Promise<{
         toAddress: AddressInfo,
         tonAmount: bigint,
         body: Cell
-    };
+    }>;
 }
 
 const AMOUNT_TO_SEND = toNano('0.2'); // 0.2 TON
@@ -689,12 +690,45 @@ const orderTypes: OrderType[] = [
                 type: 'Address'
             }
         },
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.toAddress,
                 tonAmount: values.amount,
                 body: beginCell().endCell()
             };
+        }
+    },
+
+    {
+        name: 'Transfer Jetton',
+        fields: {
+            jettonMinterAddress: {
+                name: 'Jetton Minter Address',
+                type: 'Address'
+            },
+            amount: {
+                name: 'Jetton Amount (in units)',
+                type: 'Jetton'
+            },
+            toAddress: {
+                name: 'To Address',
+                type: 'Address'
+            }
+        },
+        check: undefined,
+        makeMessage: async (values) => {
+            const jettonMinterAddress: Address = values.jettonMinterAddress.address;
+            const multisigAddress = currentMultisigInfo.address.address;
+            const jettonMinter = JettonMinter.createFromAddress(jettonMinterAddress);
+            const provider = new MyNetworkProvider(jettonMinterAddress, IS_TESTNET);
+
+            const jettonWalletAddress = await jettonMinter.getWalletAddress(provider, multisigAddress);
+
+            return {
+                toAddress: jettonWalletAddress,
+                tonAmount: DEFAULT_AMOUNT,
+                body: JettonWallet.transferMessage(values.amount, values.toAddress.address, multisigAddress, null, 0n, null)
+            }
         }
     },
 
@@ -711,7 +745,7 @@ const orderTypes: OrderType[] = [
             },
         },
         check: checkJettonMinterAdmin,
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -729,7 +763,7 @@ const orderTypes: OrderType[] = [
             },
         },
         check: checkJettonMinterNextAdmin,
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -750,7 +784,7 @@ const orderTypes: OrderType[] = [
                 type: 'TON'
             },
         },
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: values.amount,
@@ -772,7 +806,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -800,7 +834,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -826,7 +860,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -856,7 +890,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -882,7 +916,7 @@ const orderTypes: OrderType[] = [
             }
         },
         check: checkJettonMinterAdmin,
-        makeMessage: (values) => {
+        makeMessage: async (values) => {
             return {
                 toAddress: values.jettonMinterAddress,
                 tonAmount: DEFAULT_AMOUNT,
@@ -1057,7 +1091,7 @@ $('#newOrder_createButton').addEventListener('click', async () => {
         }
     }
 
-    const messageParams = orderType.makeMessage(values);
+    const messageParams = await orderType.makeMessage(values);
 
     const myProposerIndex = currentMultisigInfo.proposers.findIndex(address => address.address.equals(myAddress));
     const mySignerIndex = currentMultisigInfo.signers.findIndex(address => address.address.equals(myAddress));
