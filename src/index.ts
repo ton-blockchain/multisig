@@ -312,9 +312,11 @@ const updateMultisig = async (multisigAddress: string, isFirst: boolean): Promis
 
         // Render error if still relevant
         if (currentMultisigAddress !== multisigAddress) return;
-        toggle($('#multisig_content'), false);
-        toggle($('#multisig_error'), true);
-        $('#multisig_error').innerText = e.message;
+        if (isFirst || !e?.message?.startsWith('Timeout')) {
+            toggle($('#multisig_content'), false);
+            toggle($('#multisig_error'), true);
+            $('#multisig_error').innerText = e.message;
+        }
     }
 
     clearTimeout(updateMultisigTimeoutId);
@@ -454,9 +456,11 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
 
         // Render error if still relevant
         if (currentOrderId !== orderId) return;
-        toggle($('#order_content'), false);
-        toggle($('#order_error'), true);
-        $('#order_error').innerText = e.message;
+        if (isFirstTime || !e?.message?.startsWith('Timeout')) {
+            toggle($('#order_content'), false);
+            toggle($('#order_error'), true);
+            $('#order_error').innerText = e.message;
+        }
     }
 
     clearTimeout(updateOrderTimeoutId);
