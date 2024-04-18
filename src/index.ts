@@ -2,7 +2,7 @@ import {Address, beginCell, Cell, fromNano, SendMode, toNano} from "@ton/core";
 import {THEME, TonConnectUI} from '@tonconnect/ui'
 import {
     AddressInfo,
-    addressToString, equalsAddressLists,
+    addressToString, base64toHex, equalsAddressLists,
     equalsMsgAddresses,
     makeAddressLink,
     validateUserFriendlyAddress
@@ -256,7 +256,7 @@ const renderCurrentMultisigInfo = (): void => {
         if (lastOrder.errorMessage) {
             if (lastOrder.errorMessage.startsWith('Contract not active')) return ``;
             if (lastOrder.errorMessage.startsWith('Failed')) {
-                return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}"><span class="orderListItem_title">Failed Order #${lastOrder.order.id}</span> — Execution error</div>`;
+                return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}"><span class="orderListItem_title">Failed Order #${lastOrder.order.id}</span> — Execution error — <a href="https://tonviewer.com/transaction/${base64toHex(lastOrder.transactionHash)}" target="_blank">Tx Link</a></div>`;
             }
             return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}"><span class="orderListItem_title">Invalid Order #${lastOrder.order.id}</span> — ${lastOrder.errorMessage}</div>`;
         } else {
@@ -276,6 +276,10 @@ const renderCurrentMultisigInfo = (): void => {
 
                     text += isSigned ? ' — You approved' : ` — You haven't approved yet`;
                 }
+            }
+
+            if (lastOrder.type === 'executed') {
+                text += ` — <a href="https://tonviewer.com/transaction/${base64toHex(lastOrder.transactionHash)}" target="_blank">Tx Link</a>`;
             }
 
             return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${text}</div>`;
@@ -306,6 +310,7 @@ const renderCurrentMultisigInfo = (): void => {
 
     $$('.multisig_lastOrder').forEach(div => {
         div.addEventListener('click', (e) => {
+            if ((e.target as HTMLElement).tagName === 'A') return; // tx link
             const attributes = (e.currentTarget as HTMLElement).attributes;
             const orderAddressString = attributes.getNamedItem('order-address').value;
             const orderId = BigInt(attributes.getNamedItem('order-id').value);
@@ -416,7 +421,18 @@ const renderCurrentOrderInfo = (): void => {
     const isExpired = (new Date()).getTime() > expiresAt.getTime();
 
     $('#order_tonBalance').innerText = fromNano(tonBalance) + ' TON';
-    $('#order_executed').innerText = isExecuted ? 'Yes' : 'Not yet';
+
+    let executedTxLink = '';
+    if (isExecuted) {
+        const lastOrder = currentMultisigInfo.lastOrders.find(lo => lo.order.id === currentOrderInfo.orderId);
+        if (lastOrder) {
+            executedTxLink += ` — <a href="https://tonviewer.com/transaction/${base64toHex(lastOrder.transactionHash)}" target="_blank">Tx Link</a>`;
+        }
+    }
+
+    $('#order_executed').innerHTML = isExecuted ? 'Yes' + executedTxLink : 'Not yet';
+
+
     $('#order_approvals').innerText = approvalsNum + '/' + threshold;
     $('#order_expiresAt').innerText = (isExpired ? '❌ EXPIRED - ' : '') + expiresAt.toString();
 

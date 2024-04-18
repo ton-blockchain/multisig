@@ -1,7 +1,7 @@
 import {
     AddressInfo,
     addressToString,
-    assert,
+    assert, base64toHex,
     equalsAddressLists,
     formatAddressAndUrl,
     getAddressFormat
@@ -352,8 +352,7 @@ export const checkMultisig = async (
 
             const getFailedOrder = async (lastOrder: LastOrder) => {
                 if (lastOrder.type === 'executed') {
-                    const transactionHashHex = Buffer.from(lastOrder.transactionHash, 'base64').toString('hex');
-                    const result = await sendToTonApi('traces/' + transactionHashHex, {}, isTestnet);
+                    const result = await sendToTonApi('traces/' + base64toHex(lastOrder.transactionHash), {}, isTestnet);
                     if (findFailTx(result)) {
                         lastOrder.errorMessage = 'Failed';
                     }
