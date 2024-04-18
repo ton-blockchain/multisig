@@ -2,7 +2,7 @@ import {Address, beginCell, Cell, fromNano, SendMode, toNano} from "@ton/core";
 import {THEME, TonConnectUI} from '@tonconnect/ui'
 import {
     AddressInfo,
-    addressToString,
+    addressToString, equalsAddressLists,
     equalsMsgAddresses,
     makeAddressLink,
     validateUserFriendlyAddress
@@ -1603,6 +1603,20 @@ $('#newMultisig_createButton').addEventListener('click', async () => {
         }
 
         const isSigner = mySignerIndex > -1;
+
+        let hasPendingOrder = false;
+        for (const lastOrder of currentMultisigInfo.lastOrders) {
+            if (lastOrder.type === 'pending') {
+                hasPendingOrder = true;
+                break;
+            }
+        }
+
+        if (hasPendingOrder && (!equalsAddressLists(signersAddresses, currentMultisigInfo.signers.map(a => a.address)) || currentMultisigInfo.threshold < threshold)) {
+            if (!confirm('You have pending orders and change the multisig configuration. These pending orders can no longer be executed. Do you want to continue?')) {
+                return;
+            }
+        }
 
         const expireAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 1 month
 
