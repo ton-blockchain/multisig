@@ -318,7 +318,7 @@ const updateMultisig = async (multisigAddress: string, isFirst: boolean): Promis
     try {
         // Load
 
-        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE, IS_TESTNET, 'aggregate', isFirst);
+        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE, IS_TESTNET, 'aggregate', false);
 
         // Render if still relevant
 
@@ -468,7 +468,7 @@ const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTi
     try {
         // Load
 
-        const orderInfo = await checkMultisigOrder(orderAddress, MULTISIG_ORDER_CODE, currentMultisigInfo, IS_TESTNET, isFirstTime);
+        const orderInfo = await checkMultisigOrder(orderAddress, MULTISIG_ORDER_CODE, currentMultisigInfo, IS_TESTNET, false);
 
         // Render  if still relevant
         if (currentOrderId !== orderId) return;
