@@ -26,6 +26,8 @@ export interface MultisigOrderInfo {
     expiresAt: Date;
     actions: string[];
     stateInitMatches: boolean;
+    isMismatchSigners: boolean;
+    isMismatchThreshold: boolean;
 }
 
 const checkNumber = (n: number) => {
@@ -80,9 +82,12 @@ export const checkMultisigOrder = async (
 
     assert(multisigOrderToCheck.address.equals(multisigOrderAddress.address), "Fake multisig-order");
 
+    let isMismatchSigners = false;
+    let isMismatchThreshold = false;
+
     if (!parsedData.isExecuted) {
-        assert(multisigInfo.threshold <= parsedData.threshold, "Multisig threshold do not match order threshold");
-        assert(equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers), "Multisig signers do not match order signers");
+        isMismatchThreshold = multisigInfo.threshold > parsedData.threshold;
+        isMismatchSigners = !equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers);
     }
 
     if (needAdditionalChecks) {
@@ -313,7 +318,9 @@ export const checkMultisigOrder = async (
         signers: signersFormatted,
         expiresAt: new Date(parsedData.expirationDate * 1000),
         actions: parsedActions,
-        stateInitMatches
+        stateInitMatches,
+        isMismatchSigners,
+        isMismatchThreshold
     }
 
 }

@@ -408,7 +408,9 @@ const renderCurrentOrderInfo = (): void => {
         approvalsMask,
         threshold,
         signers,
-        expiresAt
+        expiresAt,
+        isMismatchThreshold,
+        isMismatchSigners
     } = currentOrderInfo;
 
     const isExpired = (new Date()).getTime() > expiresAt.getTime();
@@ -431,6 +433,9 @@ const renderCurrentOrderInfo = (): void => {
         signersHTML += (`<div>#${i + 1} — ${addressString} — ${isSigned ? '✅' : '❌'}${equalsMsgAddresses(signer.address, myAddress) ? YOU_BADGE : ''}</div>`);
     }
     $('#order_signersList').innerHTML = signersHTML;
+
+    $('#order_thresholdError').innerText = isMismatchThreshold ? 'Multisig threshold do not match order threshold' : '';
+    $('#order_signersError').innerText = isMismatchSigners ? 'Multisig signers do not match order signers' : '';
 
     let actionsHTML = '';
     for (const action of actions) {
