@@ -1013,6 +1013,10 @@ let transactionToSent: {
 const getNewOrderId = (): string => {
     if (!currentMultisigInfo) return '';
 
+    if (currentMultisigInfo.lastOrders.length === 0) {
+        return '1';
+    }
+
     let highestOrderId = -1n;
     currentMultisigInfo.lastOrders.forEach(lastOrder => {
         if (lastOrder.order.id > highestOrderId) {
