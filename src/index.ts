@@ -1,4 +1,4 @@
-import {Address, beginCell, Cell, fromNano, SendMode, toNano} from "@ton/core";
+import {Address, beginCell, Cell, comment, fromNano, SendMode, toNano} from "@ton/core";
 import {THEME, TonConnectUI} from '@tonconnect/ui'
 import {
     AddressInfo,
@@ -560,7 +560,7 @@ $('#order_approveButton').addEventListener('click', async () => {
 
 // NEW ORDER
 
-type FieldType = 'TON' | 'Jetton' | 'Address' | 'URL' | 'Status';
+type FieldType = 'TON' | 'Jetton' | 'Address' | 'URL' | 'Status' | 'String';
 
 interface ValidatedValue {
     value?: any;
@@ -629,6 +629,9 @@ const validateValue = (fieldName: string, value: string, fieldType: FieldType): 
             if (!value.startsWith('https://')) {
                 return makeError('Invalid URL');
             }
+            return makeValue(value);
+
+        case 'String':
             return makeValue(value);
 
         case 'Status':
@@ -722,13 +725,17 @@ const orderTypes: OrderType[] = [
             toAddress: {
                 name: 'Destination Address',
                 type: 'Address'
+            },
+            comment: {
+                name: 'Comment',
+                type: 'String'
             }
         },
         makeMessage: async (values) => {
             return {
                 toAddress: values.toAddress,
                 tonAmount: values.amount,
-                body: beginCell().endCell()
+                body: values.comment.length > 0 ? comment(values.comment) : beginCell().endCell()
             };
         }
     },
