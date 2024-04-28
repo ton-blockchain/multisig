@@ -7,7 +7,5 @@
     "allowJs": true,
     "moduleResolution":"node",
     "skipLibCheck": true
-  },
-  "files": ["src/index.ts"],
-  "exclude": ["node_modules"]
+  }
 }

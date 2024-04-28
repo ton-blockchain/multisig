@@ -1,0 +1,33 @@
+{
+  "name": "old-ui",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "webpack --mode=production --node-env=production"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@noble/ciphers": "0.5.2",
+    "@noble/curves": "1.4.0",
+    "@noble/hashes": "1.4.0",
+    "@ton/core": "0.56.3",
+    "@ton/ton": "13.11.1",
+    "@ton/crypto": "3.2.0",
+    "@truecarry/sandbox": "1.0.5",
+    "@tonconnect/protocol": "2.2.6",
+    "@tonconnect/ui": "2.0.2"
+  },
+  "devDependencies": {
+    "@webpack-cli/generators": "3.0.7",
+    "webpack-dev-server": "5.0.4",
+    "typescript": "5.4.5",
+    "webpack": "5.91.0",
+    "turbo": "^1.12.5",
+    "html-webpack-plugin": "5.6.0",
+    "copy-webpack-plugin": "12.0.2",
+    "ts-loader": "9.5.1"
+  }
+}

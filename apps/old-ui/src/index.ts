@@ -1576,7 +1576,7 @@ $('#newMultisig_createButton').addEventListener('click', async () => {
 
         const isSigner = mySignerIndex > -1;
 
-        const expireAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 1 month
+        const expireAt = Math.floor(Date.now() / 1000) + 60 * 60 * 1; // 1 hour
 
         const actions = Multisig.packOrder([
             {

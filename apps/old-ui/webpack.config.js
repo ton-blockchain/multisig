@@ -5,7 +5,7 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const isProduction = process.env.NODE_ENV == 'production';
 
 const config = {
-    entry: './src/index.ts',
+    entry: path.resolve(__dirname, './src/index.ts'),
     output: {
         path: path.resolve(__dirname, 'dist'),
     },
@@ -37,6 +37,9 @@ const config = {
                 test: /\.(ts|tsx)$/i,
                 loader: 'ts-loader',
                 exclude: ['/node_modules/'],
+                options: {
+                    allowTsInNodeModules: true
+                }
             },
         ],
     },
