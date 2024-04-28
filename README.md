@@ -1,9 +1,9 @@
 # TON Multisig UI
 
 ```
-npm run serve
+pnpm serve
 ```
 
 ```
-npm run build
+pnpm build
 ```
