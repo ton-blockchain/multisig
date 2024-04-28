@@ -4,7 +4,7 @@ import {
     assert,
     equalsMsgAddresses,
     formatAddressAndUrl,
-} from "../utils/utils";
+} from "utils";
 import {
     Address,
     beginCell,
@@ -17,8 +17,8 @@ import {
     Slice
 } from "@ton/core";
 import {JettonMinter, parseJettonMinterData} from "./JettonMinter";
-import {fromUnits} from "../utils/units";
-import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
+import {fromUnits} from "utils";
+import {MyNetworkProvider, sendToIndex} from "utils";
 import {sha256} from '@ton/crypto';
 
 export const defaultJettonKeys = ["uri", "name", "description", "image", "image_data", "symbol", "decimals", "amount_style"];

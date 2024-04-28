@@ -1,7 +1,7 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Sender, SendMode, toNano } from '@ton/core';
 import { Op } from './JettonConstants';
 import {endParse} from "./JettonMinter";
-import {assert} from "../utils/utils";
+import {assert} from "utils";
 
 export type JettonWalletConfig = {
     ownerAddress: Address,

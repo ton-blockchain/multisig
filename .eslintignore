@@ -1,0 +1,3 @@
+ecosystem.config.js
+**/build/*
+migrations/*

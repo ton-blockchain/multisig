@@ -1,0 +1,32 @@
+{
+  "name": "utils",
+  "version": "1.0.0",
+  "description": "",
+  "main": "build/index.js",
+  "types": "./index.ts",
+  "exports": {
+    ".": {
+      "development": "./index.ts",
+      "default": "./build/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rimraf ./build && npm run compile",
+    "compile": "npx --no-install tsc -p .",
+    "test": "npx jest"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@ton/core": "0.56.3",
+    "@ton/ton": "13.11.1"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.26"
+  }
+}

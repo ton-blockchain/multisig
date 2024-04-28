@@ -6,6 +6,9 @@
     "target": "es2020",
     "allowJs": true,
     "moduleResolution":"node",
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "types": ["vite/client"]
   }
 }

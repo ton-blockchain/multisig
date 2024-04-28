@@ -1,0 +1,108 @@
+{
+  "env": {
+    "commonjs": true,
+    "es6": true,
+    "node": true
+  },
+  "extends": [
+    "airbnb-base",
+    "airbnb-typescript/base",
+    "prettier",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@typescript-eslint/eslint-recommended"
+  ],
+  "parserOptions": {
+    "parser": "@typescript-eslint/parser",
+    "ecmaVersion": "latest",
+    "sourceType": "module",
+    // Allows for the use of imports
+    "project": "./tsconfig.json"
+  },
+  "plugins": [
+    "prettier",
+    "@typescript-eslint"
+  ],
+  "rules": {
+    "prettier/prettier": 1,
+    "indent": 0,
+    "no-tabs": 0,
+    "padded-blocks": 0,
+    "no-console": 0,
+    "no-trailing-spaces": 0,
+    "eol-last": 0,
+    "prefer-destructuring": 0,
+    "function-paren-newline": 0,
+    "object-shorthand": 0,
+    "comma-dangle": 0,
+    "import/prefer-default-export": "off",
+    "no-new": 0,
+    "quote-props": 0,
+    "no-prototype-builtins": 0,
+    "max-len": 0,
+    "no-restricted-globals": 0,
+    "spaced-comment": 0,
+    "camelcase": 0,
+    "arrow-body-style": 0,
+    "semi": 0,
+    "no-underscore-dangle": 0,
+    "no-multiple-empty-lines": 0,
+    "wrap-iife": 0,
+    "operator-linebreak": 0,
+    "implicit-arrow-linebreak": 0,
+    "curly": 0,
+    "nonblock-statement-body-position": 0,
+    "import/no-named-as-default": 0,
+    "import/no-named-as-default-member": 0,
+    "import/no-cycle": 0,
+    "no-restricted-syntax": [
+      "error",
+      "LabeledStatement",
+      "WithStatement"
+    ],
+    "@typescript-eslint/camelcase": "off",
+    "@typescript-eslint/naming-convention": "off",
+    "class-methods-use-this": "off",
+    "no-param-reassign": [
+      "error",
+      {
+        "props": false
+      }
+    ],
+    "no-await-in-loop": "off",
+    "@typescript-eslint/ban-ts-comment": [
+      "error",
+      {
+        "ts-ignore": "allow-with-description"
+      }
+    ],
+    "no-plusplus": "off",
+    "no-use-before-define": "off",
+    "@typescript-eslint/no-use-before-define": [
+      "error",
+      {
+        "functions": false
+      }
+    ],
+    "no-bitwise": "off",
+    "no-continue": "off",
+    "@typescript-eslint/explicit-module-boundary-types": [
+      "error"
+    ],
+    "@typescript-eslint/explicit-function-return-type": [
+      "off"
+    ],
+    "import/no-extraneous-dependencies": [
+      "off"
+    ],
+    "import/extensions": [
+      "off"
+    ],
+    "@typescript-eslint/ban-types": [
+      "off"
+    ],
+    "max-classes-per-file": [
+      "off"
+    ]
+  },
+  "ignorePatterns": []
+}

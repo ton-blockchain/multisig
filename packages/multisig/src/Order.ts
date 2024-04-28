@@ -1,7 +1,7 @@
 import {Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Dictionary} from '@ton/core';
 import {Params} from "./Constants";
 import {endParse} from "./Multisig";
-import {assert} from "../utils/utils";
+import {assert} from "utils";
 
 export type OrderConfig = {
     multisig: Address,

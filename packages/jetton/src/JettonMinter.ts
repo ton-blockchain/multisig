@@ -11,7 +11,7 @@ import {
 } from '@ton/core';
 import {JettonWallet} from './JettonWallet';
 import {Op} from './JettonConstants';
-import {assert} from "../utils/utils";
+import {assert} from "utils";
 
 export type JettonMinterContent = {
     uri: string

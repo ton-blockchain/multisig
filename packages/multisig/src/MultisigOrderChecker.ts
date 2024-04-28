@@ -5,14 +5,13 @@ import {
     equalsAddressLists,
     formatAddressAndUrl,
     getAddressFormat, sanitizeHTML,
-} from "../utils/utils";
-import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed} from "@ton/core";
+} from "utils";
+import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed, CommonMessageInfoRelaxedInternal} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
 import {MultisigInfo} from "./MultisigChecker";
-import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
-import {intToLockType, JettonMinter, lockTypeToDescription} from "../jetton/JettonMinter";
-import {CommonMessageInfoRelaxedInternal} from "@ton/core/src/types/CommonMessageInfoRelaxed";
+import {MyNetworkProvider, sendToIndex} from "utils";
+import {intToLockType, JettonMinter, lockTypeToDescription} from "jetton";
 
 export interface MultisigOrderInfo {
     address: AddressInfo;

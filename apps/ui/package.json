@@ -1,0 +1,24 @@
+{
+  "name": "ui",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "vite",
+    "dev": "vite --force",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@solidjs/router": "0.13.2",
+    "@tonconnect/protocol": "2.2.6",
+    "@tonconnect/ui": "2.0.2",
+    "solid-js": "^1.6.9",
+    "multisig": "workspace:*",
+    "jetton": "workspace:*",
+    "utils": "workspace:*"
+  }
+}
