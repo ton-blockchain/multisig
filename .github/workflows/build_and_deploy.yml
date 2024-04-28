@@ -20,7 +20,8 @@ jobs:
           cache: 'pnpm'
 
       - name: Install pnpm
-        run: npm install -g pnpm
+        run: |
+          curl -fsSL https://get.pnpm.io/install.sh | sh -
 
       - name: Install dependencies
         run: pnpm install
