@@ -7,7 +7,9 @@ export const Home: Component = () => {
 
   onMount(() => {
     if (multisigAddress()) {
-      navigation.toMultisig(multisigAddress());
+      navigation.toMultisig(
+        multisigAddress().toString({ urlSafe: true, bounceable: true }),
+      );
     } else {
       navigation.toStartScreen();
     }

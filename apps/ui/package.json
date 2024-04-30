@@ -21,5 +21,9 @@
     "multisig": "workspace:*",
     "solid-js": "^1.6.9",
     "utils": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "5.2.10",
+    "vite-plugin-solid": "2.10.2"
   }
 }

@@ -1,2 +1,10 @@
-import config from '../../vite.config'
-export default config
+import { defineConfig } from "vite";
+import solidPlugin from "vite-plugin-solid";
+
+export default defineConfig({
+  plugins: [solidPlugin()],
+  build: {
+    target: "esnext",
+    outDir: "build",
+  },
+});
