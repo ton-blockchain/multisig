@@ -11,9 +11,10 @@ import {
   createEffect,
   createResource,
   createSignal,
+  Match,
   onCleanup,
   onMount,
-  Show,
+  Switch,
 } from "solid-js";
 import { MultisigIndex } from "../components/MultisigIndex";
 import { IS_TESTNET } from "../utils/is-testnet";
@@ -70,23 +71,20 @@ export const MultisigPage: Component = () => {
 
   return (
     <>
-      <Show when={loading()}>
-        <div id="loadingScreen" class="screen">
-          <div class="loading"></div>
-        </div>
-      </Show>
-      <Show when={!loading()}>
-        <Show when={error()}>
+      <Switch fallback={<MultisigIndex info={multisigInfo.latest} />}>
+        <Match when={loading()}>
+          <div id="loadingScreen" class="screen">
+            <div class="loading"></div>
+          </div>
+        </Match>
+        <Match when={error()}>
           <div id="errorScreen" class="screen">
             <div class="panel">
               <div class="error">{error()}</div>
             </div>
           </div>
-        </Show>
-        <Show when={!error()}>
-          <MultisigIndex info={multisigInfo.latest} />
-        </Show>
-      </Show>
+        </Match>
+      </Switch>
     </>
   );
 };
