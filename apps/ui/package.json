@@ -16,9 +16,10 @@
     "@solidjs/router": "0.13.2",
     "@tonconnect/protocol": "2.2.6",
     "@tonconnect/ui": "2.0.2",
-    "solid-js": "^1.6.9",
-    "multisig": "workspace:*",
+    "buffer": "^6.0.3",
     "jetton": "workspace:*",
+    "multisig": "workspace:*",
+    "solid-js": "^1.6.9",
     "utils": "workspace:*"
   }
 }
