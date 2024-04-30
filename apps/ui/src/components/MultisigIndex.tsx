@@ -1,7 +1,7 @@
-import { useParams } from "@solidjs/router";
+import { A, useParams } from "@solidjs/router";
 import { Address, fromNano } from "@ton/core";
 import { LastOrder, MultisigInfo } from "multisig";
-import { For, JSXElement } from "solid-js";
+import { For, JSXElement, Match, Show, Switch } from "solid-js";
 import { useNavigation } from "src/navigation";
 import { addressToString } from "utils";
 import { setMultisigAddress } from "@/storages/multisig-address";
@@ -83,6 +83,7 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
 
 function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
   const userAccount = tonConnectUI().account;
+
   const userAddress = userAccount.address
     ? Address.parse(userAccount.address)
     : undefined;
@@ -93,36 +94,6 @@ function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
         {(lastOrder) => {
           if (lastOrder?.errorMessage?.startsWith("Contract not active")) {
             return <></>;
-          }
-
-          if (lastOrder?.errorMessage?.startsWith("Failed")) {
-            return (
-              <div
-                class="multisig_lastOrder"
-                order-id={lastOrder.order.id}
-                order-address={addressToString(lastOrder.order.address)}
-              >
-                <span class="orderListItem_title">
-                  Failed Order #{lastOrder.order.id.toString(10)}
-                </span>{" "}
-                — Execution error
-              </div>
-            );
-          }
-
-          if (lastOrder?.errorMessage) {
-            return (
-              <div
-                class="multisig_lastOrder"
-                order-id={lastOrder.order.id}
-                order-address={addressToString(lastOrder.order.address)}
-              >
-                <span class="orderListItem_title">
-                  Invalid Order #{lastOrder.order.id.toString(10)}
-                </span>{" "}
-                — {lastOrder.errorMessage}
-              </div>
-            );
           }
 
           const isExpired = lastOrder.orderInfo
@@ -148,17 +119,35 @@ function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
           }
 
           return (
-            <div
+            <A
               class="multisig_lastOrder"
               order-id={lastOrder.order.id}
               order-address={addressToString(lastOrder.order.address)}
+              href={`/multisig/${info.address.address.toString({ bounceable: true, urlSafe: true })}/${lastOrder.order.id.toString()}`}
             >
-              <span class="orderListItem_title">
-                {actionText} #{lastOrder.order.id.toString()}
-                {signerText || <></>}
-                {userAddress?.toString()}
-              </span>
-            </div>
+              <Switch>
+                <Match when={lastOrder?.errorMessage?.startsWith("Failed")}>
+                  <span class="orderListItem_title">
+                    Failed Order #{lastOrder.order.id.toString(10)}
+                  </span>{" "}
+                  — Execution error
+                </Match>
+                <Match when={lastOrder?.errorMessage}>
+                  <span class="orderListItem_title">
+                    Invalid Order #{lastOrder.order.id.toString(10)}
+                  </span>{" "}
+                  — {lastOrder.errorMessage}
+                </Match>
+              </Switch>
+
+              <Show when={!lastOrder?.errorMessage}>
+                <span class="orderListItem_title">
+                  {actionText} #{lastOrder.order.id.toString()}
+                  {signerText || <></>}
+                  {userAddress?.toString()}
+                </span>
+              </Show>
+            </A>
           );
         }}
       </For>
