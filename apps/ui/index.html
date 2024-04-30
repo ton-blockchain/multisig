@@ -18,6 +18,10 @@
 
     window.Buffer = Buffer;
     window.process = {}
+
+    BigInt.prototype.toJSON = function toJSON() {
+        return this.toString();
+    };
 </script>
 
 <script src="/src/index.tsx" type="module"></script>

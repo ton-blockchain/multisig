@@ -1,9 +1,11 @@
 import { useParams } from "@solidjs/router";
-import { fromNano } from "@ton/core";
-import { MultisigInfo } from "multisig";
-import { JSXElement } from "solid-js";
+import { Address, fromNano } from "@ton/core";
+import { LastOrder, MultisigInfo } from "multisig";
+import { For, JSXElement } from "solid-js";
 import { useNavigation } from "src/navigation";
+import { addressToString } from "utils";
 import { setMultisigAddress } from "@/storages/multisig-address";
+import { tonConnectUI } from "@/storages/ton-connect";
 
 export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
   const navigation = useNavigation();
@@ -72,9 +74,109 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
             Create new order
           </button>
 
-          <div id="mainScreen_ordersList"></div>
+          <OrdersList info={info} />
         </div>
       </div>
     </div>
   );
+}
+
+function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
+  const userAccount = tonConnectUI().account;
+  const userAddress = userAccount.address
+    ? Address.parse(userAccount.address)
+    : undefined;
+
+  return (
+    <div id="mainScreen_ordersList">
+      <For each={info.lastOrders}>
+        {(lastOrder) => {
+          if (lastOrder?.errorMessage?.startsWith("Contract not active")) {
+            return <></>;
+          }
+
+          if (lastOrder?.errorMessage?.startsWith("Failed")) {
+            return (
+              <div
+                class="multisig_lastOrder"
+                order-id={lastOrder.order.id}
+                order-address={addressToString(lastOrder.order.address)}
+              >
+                <span class="orderListItem_title">
+                  Failed Order #{lastOrder.order.id.toString(10)}
+                </span>{" "}
+                — Execution error
+              </div>
+            );
+          }
+
+          if (lastOrder?.errorMessage) {
+            return (
+              <div
+                class="multisig_lastOrder"
+                order-id={lastOrder.order.id}
+                order-address={addressToString(lastOrder.order.address)}
+              >
+                <span class="orderListItem_title">
+                  Invalid Order #{lastOrder.order.id.toString(10)}
+                </span>{" "}
+                — {lastOrder.errorMessage}
+              </div>
+            );
+          }
+
+          const isExpired = lastOrder.orderInfo
+            ? new Date().getTime() > lastOrder.orderInfo.expiresAt.getTime()
+            : false;
+          const actionText = isExpired
+            ? "Expired order "
+            : formatOrderType(lastOrder);
+
+          let signerText = "";
+          if (lastOrder.type === "pending" && userAddress) {
+            const myIndex = lastOrder.orderInfo.signers.findIndex((signer) =>
+              signer.address.equals(userAddress),
+            );
+            if (myIndex > -1) {
+              const mask = 1 << myIndex;
+              const isSigned = lastOrder.orderInfo.approvalsMask & mask;
+
+              signerText = isSigned
+                ? " — You approved"
+                : ` — You haven't approved yet`;
+            }
+          }
+
+          return (
+            <div
+              class="multisig_lastOrder"
+              order-id={lastOrder.order.id}
+              order-address={addressToString(lastOrder.order.address)}
+            >
+              <span class="orderListItem_title">
+                {actionText} #{lastOrder.order.id.toString()}
+                {signerText || <></>}
+                {userAddress?.toString()}
+              </span>
+            </div>
+          );
+        }}
+      </For>
+    </div>
+  );
+}
+
+function formatOrderType(lastOrder: LastOrder): string {
+  switch (lastOrder.type) {
+    case "new":
+      return "New order";
+    case "execute":
+      return "Execute order";
+    case "pending":
+      return "Pending order";
+    case "executed":
+      return "Executed order";
+    default:
+      throw new Error(`unknown order type ${lastOrder.type}`);
+  }
 }
