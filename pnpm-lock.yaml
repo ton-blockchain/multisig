@@ -133,6 +133,9 @@ importers:
       '@solidjs/router':
         specifier: 0.13.2
         version: 0.13.2(solid-js@1.8.17)
+      '@ton/sandbox':
+        specifier: ^0.19.0
+        version: 0.19.0(@ton/core@0.56.3)(@ton/crypto@3.2.0)
       '@tonconnect/protocol':
         specifier: 2.2.6
         version: 2.2.6
@@ -1697,6 +1700,16 @@ packages:
       '@ton/crypto-primitives': 2.0.0
       jssha: 3.2.0
       tweetnacl: 1.0.3
+    dev: false
+
+  /@ton/sandbox@0.19.0(@ton/core@0.56.3)(@ton/crypto@3.2.0):
+    resolution: {integrity: sha512-ARSZg9Hic0UgWl2fA11PokeVFsHFaxh7tQA1KTCLpthx0QJNaFqRsxeeNNw2ICmZovB3JVWSCwYQkkd/4kVeow==}
+    peerDependencies:
+      '@ton/core': '>=0.56.0'
+      '@ton/crypto': '>=3.2.0'
+    dependencies:
+      '@ton/core': 0.56.3(@ton/crypto@3.2.0)
+      '@ton/crypto': 3.2.0
     dev: false
 
   /@ton/ton@13.11.1(@ton/core@0.56.3)(@ton/crypto@3.2.0):

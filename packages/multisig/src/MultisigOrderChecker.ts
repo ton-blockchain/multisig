@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {
     AddressInfo,
     addressToString,
@@ -6,7 +7,7 @@ import {
     formatAddressAndUrl,
     getAddressFormat, sanitizeHTML,
 } from "utils";
-import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed, CommonMessageInfoRelaxedInternal} from "@ton/core";
+import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed, CommonMessageInfoRelaxedInternal, beginCell} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
 import {MultisigInfo} from "./MultisigChecker";
@@ -25,6 +26,9 @@ export interface MultisigOrderInfo {
     expiresAt: Date;
     actions: string[];
     stateInitMatches: boolean;
+    rawActions?: Cell[]
+    signersCell: Cell
+    orderCell: Cell
 }
 
 const checkNumber = (n: number) => {
@@ -212,7 +216,7 @@ export const checkMultisigOrder = async (
         } catch (e) {
         }
 
-        throw new Error('Unsupported action')
+        // throw new Error('Unsupported action')
 
     }
 
@@ -312,7 +316,10 @@ export const checkMultisigOrder = async (
         signers: signersFormatted,
         expiresAt: new Date(parsedData.expirationDate * 1000),
         actions: parsedActions,
-        stateInitMatches
+        rawActions: actions.values(),
+        stateInitMatches,
+        orderCell: parsedData.order,
+        signersCell: parsedData.signersRef,
     }
 
 }
