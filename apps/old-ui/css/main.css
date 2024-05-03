@@ -15,7 +15,7 @@ a, a:active, a:focus, a:hover {
     text-decoration: none;
 }
 
-input, select {
+input, select, textarea {
     font-family: Helvetica, Arial, SansSerif;
     text-align: left;
     font-size: 14px;
@@ -205,7 +205,7 @@ button:disabled, .btn:disabled {
     max-width: 700px;
 }
 
-#newOrderScreen input, #newOrderScreen select {
+#newOrderScreen input, #newOrderScreen select, #newOrderScreen textarea {
     width: 100%;
 }
 

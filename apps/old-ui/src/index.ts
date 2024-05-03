@@ -10,7 +10,16 @@ import {
   lockTypeToDescription,
   lockTypeToInt
 } from "jetton";
-import {checkMultisig, checkMultisigOrder, LastOrder, Multisig, MultisigInfo, MultisigOrderInfo, Order} from "multisig";
+import {
+  Action,
+  checkMultisig,
+  checkMultisigOrder,
+  LastOrder,
+  Multisig,
+  MultisigInfo,
+  MultisigOrderInfo,
+  Order
+} from "multisig";
 import {
   AddressInfo,
   addressToString,
@@ -564,7 +573,7 @@ $('#order_approveButton').addEventListener('click', async () => {
 
 // NEW ORDER
 
-type FieldType = 'TON' | 'Jetton' | 'Address' | 'URL' | 'Status';
+type FieldType = "TON" | "Jetton" | "Address" | "URL" | "Status" | "CSV";
 
 interface ValidatedValue {
   value?: any;
@@ -638,11 +647,67 @@ const validateValue = (fieldName: string, value: string, fieldType: FieldType): 
     case 'Status':
       if (LOCK_TYPES.indexOf(value) > -1) {
         return makeValue(value);
-      } else {
-        return makeError('Invalid status. Please use: ' + LOCK_TYPES.join(', '));
       }
+      return makeError(`Invalid status. Please use: ${LOCK_TYPES.join(", ")}`);
+
+    case "CSV": {
+      const values = value
+        .split("\n")
+        .map((x) => x.split("\t").map((p) => p.trim()));
+
+      if (values.length === 0) {
+        return makeError("Empty CSV");
+      }
+
+      if (values.some((x) => x.length !== 3)) {
+        return makeError(
+          "Invalid CSV format, should be: TON Address, Amount, JettonAmount",
+        );
+      }
+
+      if (values.some((x) => !Address.isFriendly(x[0]))) {
+        return makeError("Invalid Address in CSV");
+      }
+      if (
+        values.some(
+          (x) => Address.parseFriendly(x[0]).isTestOnly && !IS_TESTNET,
+        )
+      ) {
+        return makeError("Please enter mainnet address");
+      }
+
+      if (values.some((x) => !/^\d+$/.test(x[1]))) {
+        return makeError("Invalid amount in CSV, amount should be integer");
+      }
+
+      if (values.some((x) => !/^\d+$/.test(x[2]))) {
+        return makeError(
+          "Invalid jettonAmount in CSV, jettonAmount should be integer",
+        );
+      }
+
+      const valuesParsed = values.map(
+        ([toAddress, amount, jettonAmount]: [string, string, string]) => ({
+          toAddress: Address.parseFriendly(toAddress),
+          amount: BigInt(amount),
+          jettonAmount: BigInt(jettonAmount),
+        }),
+      );
+
+      const jettonDecimals = 1000000n;
+      if (
+        valuesParsed.some((x) => x.amount * jettonDecimals !== x.jettonAmount)
+      ) {
+        return makeError("Amount * 1000000 should be equal to jettonAmount");
+      }
+
+      return makeValue(valuesParsed);
+    }
+
+    default:
+      return makeError("Unknown field type");
   }
-}
+};
 
 interface OrderField {
   name: string;
@@ -659,10 +724,10 @@ interface OrderType {
   name: string;
   fields: { [key: string]: OrderField };
   check?: (values: { [key: string]: any }) => Promise<ValidatedValue>;
-  makeMessage: (values: { [key: string]: any }) => Promise<MakeMessageResult>;
+  makeMessage: (values: { [key: string]: any }) => Promise<MakeMessageResult[]>;
 }
 
-const AMOUNT_TO_SEND = toNano('0.2'); // 0.2 TON
+const AMOUNT_TO_SEND = toNano("1"); // 0.2 TON
 const DEFAULT_AMOUNT = toNano('0.1'); // 0.1 TON
 const DEFAULT_INTERNAL_AMOUNT = toNano('0.05'); // 0.05 TON
 
@@ -724,17 +789,19 @@ const orderTypes: OrderType[] = [
         type: 'TON'
       },
       toAddress: {
-        name: 'Destination Address',
-        type: 'Address'
-      }
+        name: "Destination Address",
+        type: "Address",
+      },
     },
-    makeMessage: async (values) => {
-      return {
-        toAddress: values.toAddress,
-        tonAmount: values.amount,
-        body: beginCell().endCell()
-      };
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.toAddress,
+          tonAmount: values.amount,
+          body: beginCell().endCell(),
+        },
+      ];
+    },
   },
 
   {
@@ -745,223 +812,328 @@ const orderTypes: OrderType[] = [
         type: 'Address'
       },
       amount: {
-        name: 'Jetton Amount (in units)',
-        type: 'Jetton'
+        name: "Jetton Amount (in units)",
+        type: "Jetton",
       },
       toAddress: {
-        name: 'To Address',
-        type: 'Address'
-      }
+        name: "To Address",
+        type: "Address",
+      },
     },
-    makeMessage: async (values): Promise<MakeMessageResult> => {
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
       const jettonMinterAddress: Address = values.jettonMinterAddress.address;
       const multisigAddress = currentMultisigInfo.address.address;
       const jettonMinter = JettonMinter.createFromAddress(jettonMinterAddress);
       const provider = new MyNetworkProvider(jettonMinterAddress, IS_TESTNET);
 
-      const jettonWalletAddress = await jettonMinter.getWalletAddress(provider, multisigAddress);
+      const jettonWalletAddress = await jettonMinter.getWalletAddress(
+        provider,
+        multisigAddress,
+      );
 
-      return {
-        toAddress: {address: jettonWalletAddress, isBounceable: true, isTestOnly: IS_TESTNET},
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonWallet.transferMessage(values.amount, values.toAddress.address, multisigAddress, null, 0n, null)
-      }
-    }
+      return [
+        {
+          toAddress: {
+            address: jettonWalletAddress,
+            isBounceable: true,
+            isTestOnly: IS_TESTNET,
+          },
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonWallet.transferMessage(
+            values.amount,
+            values.toAddress.address,
+            multisigAddress,
+            null,
+            1n,
+            null,
+          ),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Mint Jetton',
+    name: "Multi Jetton Transfer",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
+      },
+      csv: {
+        name: "Recipient Addresses and Amounts (CSV)",
+        type: "CSV",
+      },
+    },
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      const jettonMinterAddress: Address = values.jettonMinterAddress.address;
+      const multisigAddress = currentMultisigInfo.address.address;
+      const jettonMinter = JettonMinter.createFromAddress(jettonMinterAddress);
+      const provider = new MyNetworkProvider(jettonMinterAddress, IS_TESTNET);
+
+      const jettonWalletAddress = await jettonMinter.getWalletAddress(
+        provider,
+        multisigAddress,
+      );
+
+      return values.csv.map(
+        (transfer: {
+          toAddress: { address: Address };
+          jettonAmount: bigint;
+        }) => ({
+          toAddress: {
+            address: jettonWalletAddress,
+            isBounceable: true,
+            isTestOnly: IS_TESTNET,
+          },
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonWallet.transferMessage(
+            transfer.jettonAmount,
+            transfer.toAddress.address,
+            multisigAddress,
+            null,
+            1n,
+            null,
+          ),
+        }),
+      );
+    },
+  },
+
+  {
+    name: "Mint Jetton",
+    fields: {
+      jettonMinterAddress: {
+        name: "Jetton Minter Address",
+        type: "Address",
       },
       amount: {
-        name: 'Jetton Amount (in units)',
-        type: 'Jetton'
+        name: "Jetton Amount (in units)",
+        type: "Jetton",
       },
       toAddress: {
-        name: 'To Address',
-        type: 'Address'
-      }
+        name: "To Address",
+        type: "Address",
+      },
     },
     check: checkJettonMinterAdmin,
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonMinter.mintMessage(values.toAddress.address, values.amount, values.jettonMinterAddress.address, currentMultisigInfo.address.address, null, 0n, DEFAULT_INTERNAL_AMOUNT)
-      };
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonMinter.mintMessage(
+            values.toAddress.address,
+            values.amount,
+            values.jettonMinterAddress.address,
+            currentMultisigInfo.address.address,
+            null,
+            0n,
+            DEFAULT_INTERNAL_AMOUNT,
+          ),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Change Jetton Admin',
+    name: "Change Jetton Admin",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
       },
       newAdminAddress: {
-        name: 'New Admin Address',
-        type: 'Address'
+        name: "New Admin Address",
+        type: "Address",
       },
     },
     check: checkJettonMinterAdmin,
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonMinter.changeAdminMessage(values.newAdminAddress.address)
-      };
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonMinter.changeAdminMessage(values.newAdminAddress.address),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Claim Jetton Admin',
+    name: "Claim Jetton Admin",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
       },
     },
     check: checkJettonMinterNextAdmin,
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonMinter.claimAdminMessage()
-      }
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonMinter.claimAdminMessage(),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Top-up Jetton Minter',
+    name: "Top-up Jetton Minter",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
       },
       amount: {
-        name: 'TON Amount',
-        type: 'TON'
+        name: "TON Amount",
+        type: "TON",
       },
     },
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: values.amount,
-        body: JettonMinter.topUpMessage()
-      }
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: values.amount,
+          body: JettonMinter.topUpMessage(),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Change Jetton Metadata URL',
+    name: "Change Jetton Metadata URL",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
       },
       newMetadataUrl: {
-        name: 'New Metadata URL',
-        type: 'URL'
-      }
+        name: "New Metadata URL",
+        type: "URL",
+      },
     },
     check: checkJettonMinterAdmin,
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonMinter.changeContentMessage({
-          uri: values.newMetadataUrl
-        })
-      };
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonMinter.changeContentMessage({
+            uri: values.newMetadataUrl,
+          }),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Force Burn Jetton',
+    name: "Force Burn Jetton",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
       },
       amount: {
-        name: 'Jetton Amount (in units)',
-        type: 'Jetton'
+        name: "Jetton Amount (in units)",
+        type: "Jetton",
       },
       fromAddress: {
-        name: 'User Address',
-        type: 'Address'
-      }
+        name: "User Address",
+        type: "Address",
+      },
     },
     check: checkJettonMinterAdmin,
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonMinter.forceBurnMessage(values.amount, values.fromAddress.address, currentMultisigInfo.address.address, DEFAULT_INTERNAL_AMOUNT)
-      };
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonMinter.forceBurnMessage(
+            values.amount,
+            values.fromAddress.address,
+            currentMultisigInfo.address.address,
+            DEFAULT_INTERNAL_AMOUNT,
+          ),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Force Transfer Jetton',
+    name: "Force Transfer Jetton",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
       },
       amount: {
-        name: 'Jetton Amount (in units)',
-        type: 'Jetton'
+        name: "Jetton Amount (in units)",
+        type: "Jetton",
       },
       fromAddress: {
-        name: 'From Address',
-        type: 'Address'
+        name: "From Address",
+        type: "Address",
       },
       toAddress: {
-        name: 'To Address',
-        type: 'Address'
-      }
+        name: "To Address",
+        type: "Address",
+      },
     },
     check: checkJettonMinterAdmin,
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonMinter.forceTransferMessage(values.amount, values.toAddress.address, values.fromAddress.address, values.jettonMinterAddress.address, null, 0n, null, DEFAULT_INTERNAL_AMOUNT)
-      }
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonMinter.forceTransferMessage(
+            values.amount,
+            values.toAddress.address,
+            values.fromAddress.address,
+            values.jettonMinterAddress.address,
+            null,
+            0n,
+            null,
+            DEFAULT_INTERNAL_AMOUNT,
+          ),
+        },
+      ];
+    },
   },
 
   {
-    name: 'Set status for Jetton Wallet',
+    name: "Set status for Jetton Wallet",
     fields: {
       jettonMinterAddress: {
-        name: 'Jetton Minter Address',
-        type: 'Address'
+        name: "Jetton Minter Address",
+        type: "Address",
       },
       userAddress: {
-        name: 'User Address',
-        type: 'Address'
+        name: "User Address",
+        type: "Address",
       },
       newStatus: {
-        name: `New Status (${LOCK_TYPES.join(', ')})`,
-        type: 'Status'
-      }
+        name: `New Status (${LOCK_TYPES.join(", ")})`,
+        type: "Status",
+      },
     },
     check: checkJettonMinterAdmin,
-    makeMessage: async (values): Promise<MakeMessageResult> => {
-      return {
-        toAddress: values.jettonMinterAddress,
-        tonAmount: DEFAULT_AMOUNT,
-        body: JettonMinter.lockWalletMessage(values.userAddress.address, lockTypeToInt(values.newStatus), DEFAULT_INTERNAL_AMOUNT)
-      }
-    }
+    makeMessage: async (values): Promise<MakeMessageResult[]> => {
+      return [
+        {
+          toAddress: values.jettonMinterAddress,
+          tonAmount: DEFAULT_AMOUNT,
+          body: JettonMinter.lockWalletMessage(
+            values.userAddress.address,
+            lockTypeToInt(values.newStatus),
+            DEFAULT_INTERNAL_AMOUNT,
+          ),
+        },
+      ];
+    },
   },
-]
+];
 
 const getOrderTypesHTML = (): string => {
   let html = '';
@@ -991,7 +1163,9 @@ const renderNewOrderFields = (orderTypeIndex: number): void => {
           const lockType: LockType = LOCK_TYPES[i] as LockType;
           html += `<option value="${lockType}">${lockTypeToDescription(lockType)}</option>`;
         }
-        html += `</select>`
+        html += `</select>`;
+      } else if (field.type === "CSV") {
+        html += `<textarea id="newOrder_${orderTypeIndex}_${fieldId}" rows="5"></textarea>`;
       } else {
         html += `<input id="newOrder_${orderTypeIndex}_${fieldId}">`
       }
@@ -1153,46 +1327,58 @@ $('#newOrder_createButton').addEventListener('click', async () => {
   }
 
   const isSigner = mySignerIndex > -1;
-
-  const toAddress = messageParams.toAddress;
-  const tonAmount = messageParams.tonAmount;
-  const payloadCell = messageParams.body;
   const expireAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 1 month
 
-  const actions = Multisig.packOrder([
-    {
-      type: 'transfer',
+  const rawActions = [];
+  for (const messageParam of messageParams) {
+    const toAddress = messageParam.toAddress;
+    const tonAmount = messageParam.tonAmount;
+    const payloadCell = messageParam.body;
+
+    const action: Action = {
+      type: "transfer",
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       message: {
         info: {
-          type: 'internal',
+          type: "internal",
           ihrDisabled: false,
           bounce: true,
           bounced: false,
           dest: toAddress.address,
           value: {
-            coins: tonAmount
+            coins: tonAmount,
           },
           ihrFee: 0n,
           forwardFee: 0n,
           createdLt: 0n,
-          createdAt: 0
+          createdAt: 0,
         },
-        body: payloadCell
-      }
-    }
-  ]);
+        body: payloadCell,
+      },
+    };
+    rawActions.push(action);
 
-  const message = Multisig.newOrderMessage(actions, expireAt, isSigner, isSigner ? mySignerIndex : myProposerIndex, orderId, 0n)
-  const messageBase64 = message.toBoc().toString('base64');
+    console.log({
+      toAddress,
+      tonAmount,
+      payloadCell,
+      orderId,
+    });
+  }
+  const actions = Multisig.packOrder(rawActions);
+  const message = Multisig.newOrderMessage(
+    actions,
+    expireAt,
+    isSigner,
+    isSigner ? mySignerIndex : myProposerIndex,
+    orderId,
+    0n,
+  );
+  const messageBase64 = message.toBoc().toString("base64");
 
   console.log({
-    toAddress,
-    tonAmount,
-    payloadCell,
     message,
-    orderId
-  })
+  });
 
   const multisigAddressString = currentMultisigAddress;
   const amount = AMOUNT_TO_SEND.toString();
@@ -1203,8 +1389,8 @@ $('#newOrder_createButton').addEventListener('click', async () => {
     message: {
       address: multisigAddressString,
       amount: amount,
-      payload: messageBase64,  // raw one-cell BoC encoded in Base64
-    }
+      payload: messageBase64, // raw one-cell BoC encoded in Base64
+    },
   };
 
   setNewOrderMode('confirm')
