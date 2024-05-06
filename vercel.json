@@ -1,0 +1,3 @@
+{
+    "rewrites": [{ "source": "/multisig/:address/:order", "destination": "/index.html" }]
+}
