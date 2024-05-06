@@ -1,5 +1,11 @@
 import { useParams } from "@solidjs/router";
-import { Address, beginCell, internal, storeMessageRelaxed } from "@ton/core";
+import {
+  Address,
+  Cell,
+  beginCell,
+  internal,
+  storeMessageRelaxed,
+} from "@ton/core";
 import {
   MultisigInfo,
   checkMultisig,
@@ -19,8 +25,31 @@ import {
   createSignal,
 } from "solid-js";
 import { BlockchainTransaction } from "@ton/sandbox";
+import { parseInternal } from "@truecarry/tlb-abi";
 import { IS_TESTNET } from "@/utils/is-testnet";
 import { getEmulatedTxInfo } from "@/utils/getEmulatedTxInfo";
+
+type ParsedBlockchainTransaction = BlockchainTransaction & {
+  parsed?: ReturnType<typeof parseInternal>;
+};
+
+const TonStringifier = (input: unknown) =>
+  JSON.stringify(
+    input,
+    (key, value) => {
+      if (value instanceof Cell) {
+        return value.toBoc().toString("base64");
+      }
+      if (value?.type === "Buffer") {
+        return Buffer.from(value.data).toString("base64");
+      }
+      if (value instanceof Address) {
+        return value.toString();
+      }
+      return value;
+    },
+    2,
+  );
 
 async function fetchMultisig(
   {
@@ -89,7 +118,22 @@ async function fetchOrder({
 
   const msgCell = beginCell().store(storeMessageRelaxed(msg)).endCell();
 
-  const data = await getEmulatedTxInfo(msgCell, true);
+  const data: Array<ParsedBlockchainTransaction> = await getEmulatedTxInfo(
+    msgCell,
+    true,
+  );
+
+  for (let i = 0; i < data.length; i++) {
+    const tx = data[i];
+    if (tx.inMessage.body) {
+      try {
+        const parsed = parseInternal(tx.inMessage.body.asSlice());
+        data[i].parsed = parsed;
+      } catch (e) {
+        //
+      }
+    }
+  }
   return data;
 }
 
@@ -195,7 +239,7 @@ export function MultisigOrderPage() {
   );
 }
 
-function TxRow({ item }: { item: BlockchainTransaction }) {
+function TxRow({ item }: { item: ParsedBlockchainTransaction }) {
   const to = item?.inMessage?.info?.dest;
   const from = item?.inMessage?.info?.src ?? "external";
 
@@ -219,6 +263,9 @@ function TxRow({ item }: { item: BlockchainTransaction }) {
       </div>
       <div>OutMessagesCount: {item.outMessagesCount}</div>
       <div>Compute Exit: {computeExit}</div>
+      <div>
+        Parsed: <pre>{TonStringifier(item.parsed)}</pre>
+      </div>
     </div>
   );
 }
