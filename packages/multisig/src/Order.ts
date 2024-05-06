@@ -1,3 +1,4 @@
+/* eslint-disable */
 import {Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Dictionary} from '@ton/core';
 import {Params} from "./Constants";
 import {endParse} from "./Multisig";
@@ -46,7 +47,9 @@ export function parseOrderData(data: Cell) {
 
     const threshold = slice.loadUint(8);
     const isExecuted = slice.loadBoolean();
-    const signers = cellToArray(slice.loadRef());
+
+    const signersRef = slice.loadRef()
+    const signers = cellToArray(signersRef);
     const approvalsMask = slice.loadUint(1 << 8);
     const approvalsNum = slice.loadUint(8);
     const expirationDate = slice.loadUint(48);
@@ -62,7 +65,8 @@ export function parseOrderData(data: Cell) {
         approvalsMask,
         approvalsNum,
         expirationDate,
-        order
+        order,
+        signersRef
     }
 }
 

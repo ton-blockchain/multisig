@@ -14,11 +14,18 @@
   "license": "ISC",
   "dependencies": {
     "@solidjs/router": "0.13.2",
+    "@ton/sandbox": "^0.19.0",
     "@tonconnect/protocol": "2.2.6",
     "@tonconnect/ui": "2.0.2",
-    "solid-js": "^1.6.9",
-    "multisig": "workspace:*",
+    "@truecarry/tlb-abi": "^0.1.1",
+    "buffer": "^6.0.3",
     "jetton": "workspace:*",
+    "multisig": "workspace:*",
+    "solid-js": "^1.6.9",
     "utils": "workspace:*"
+  },
+  "devDependencies": {
+    "vite": "5.2.10",
+    "vite-plugin-solid": "2.10.2"
   }
 }

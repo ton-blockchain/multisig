@@ -85,9 +85,9 @@
     ],
     "no-bitwise": "off",
     "no-continue": "off",
-    "@typescript-eslint/explicit-module-boundary-types": [
-      "error"
-    ],
+    // "@typescript-eslint/explicit-module-boundary-types": [
+    //   "error"
+    // ],
     "@typescript-eslint/explicit-function-return-type": [
       "off"
     ],
