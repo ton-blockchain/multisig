@@ -144,7 +144,7 @@ function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
                 <span class="orderListItem_title">
                   {actionText} #{lastOrder.order.id.toString()}
                   {signerText || <></>}
-                  {userAddress?.toString()}
+                  {/* {userAddress?.toString()} */}
                 </span>
               </Show>
             </A>
