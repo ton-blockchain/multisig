@@ -84,7 +84,7 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
 function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
   const userAccount = tonConnectUI().account;
 
-  const userAddress = userAccount.address
+  const userAddress = userAccount?.address
     ? Address.parse(userAccount.address)
     : undefined;
 
