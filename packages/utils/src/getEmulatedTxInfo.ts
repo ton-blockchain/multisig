@@ -6,12 +6,17 @@ import {
   wrapTonClient4ForRemote,
   RemoteBlockchainStorage,
 } from "@ton/sandbox";
+import { parseInternal } from "@truecarry/tlb-abi";
+
+export type ParsedBlockchainTransaction = BlockchainTransaction & {
+  parsed?: ReturnType<typeof parseInternal>;
+};
 
 export async function getEmulatedTxInfo(
   cell: Cell | undefined,
   ignoreChecksig: boolean = false,
   isTestnet: boolean = false,
-) {
+): Promise<ParsedBlockchainTransaction[]> {
   const blockchain = await Blockchain.create({
     storage: new RemoteBlockchainStorage(
       wrapTonClient4ForRemote(client()),
@@ -32,9 +37,21 @@ export async function getEmulatedTxInfo(
     ignoreChksig: ignoreChecksig,
   });
 
-  const transactions: BlockchainTransaction[] = [];
+  const transactions: ParsedBlockchainTransaction[] = [];
   for await (const tx of iter) {
     transactions.push(tx);
+  }
+
+  for (let i = 0; i < transactions.length; i++) {
+    const tx = transactions[i];
+    if (tx.inMessage.body) {
+      try {
+        const parsed = parseInternal(tx.inMessage.body.asSlice());
+        transactions[i].parsed = parsed;
+      } catch (e) {
+        //
+      }
+    }
   }
 
   return transactions;

@@ -141,7 +141,7 @@ importers:
         version: 2.0.2
       '@truecarry/tlb-abi':
         specifier: ^0.1.1
-        version: 0.1.1(@ton/core@0.56.3)
+        version: 0.1.1(@ton/core@0.56.3)(@types/node@20.11.26)
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -160,7 +160,7 @@ importers:
     devDependencies:
       vite:
         specifier: 5.2.10
-        version: 5.2.10
+        version: 5.2.10(@types/node@20.11.26)
       vite-plugin-solid:
         specifier: 2.10.2
         version: 2.10.2(solid-js@1.8.17)(vite@5.2.10)
@@ -199,6 +199,9 @@ importers:
       '@ton/ton':
         specifier: 13.11.1
         version: 13.11.1(@ton/core@0.56.3)(@ton/crypto@3.2.0)
+      '@truecarry/tlb-abi':
+        specifier: ^0.1.1
+        version: 0.1.1(@ton/core@0.56.3)(@types/node@20.11.26)
     devDependencies:
       '@types/node':
         specifier: 20.11.26
@@ -1125,27 +1128,27 @@ packages:
     resolution: {integrity: sha512-Hcv+nVC0kZnQ3tD9GVu5xSMR4VVYOteQIr/hwFPVEvPdlXqgGEuRjiheChHgdM+JyqdgNcmzZOX/tnl0JOiI7A==}
     dev: true
 
-  /@microsoft/api-extractor-model@7.28.14:
+  /@microsoft/api-extractor-model@7.28.14(@types/node@20.11.26):
     resolution: {integrity: sha512-Bery/c8A8SsKPSvA82cTTuy/+OcxZbLRmKhPkk91/AJOQzxZsShcrmHFAGeiEqSIrv1nPZ3tKq9kfMLdCHmsqg==}
     dependencies:
       '@microsoft/tsdoc': 0.14.2
       '@microsoft/tsdoc-config': 0.16.2
-      '@rushstack/node-core-library': 4.1.0
+      '@rushstack/node-core-library': 4.1.0(@types/node@20.11.26)
     transitivePeerDependencies:
       - '@types/node'
     dev: false
 
-  /@microsoft/api-extractor@7.43.1:
+  /@microsoft/api-extractor@7.43.1(@types/node@20.11.26):
     resolution: {integrity: sha512-ohg40SsvFFgzHFAtYq5wKJc8ZDyY46bphjtnSvhSSlXpPTG7GHwyyXkn48UZiUCBwr2WC7TRC1Jfwz7nreuiyQ==}
     hasBin: true
     dependencies:
-      '@microsoft/api-extractor-model': 7.28.14
+      '@microsoft/api-extractor-model': 7.28.14(@types/node@20.11.26)
       '@microsoft/tsdoc': 0.14.2
       '@microsoft/tsdoc-config': 0.16.2
-      '@rushstack/node-core-library': 4.1.0
+      '@rushstack/node-core-library': 4.1.0(@types/node@20.11.26)
       '@rushstack/rig-package': 0.5.2
-      '@rushstack/terminal': 0.10.1
-      '@rushstack/ts-command-line': 4.19.2
+      '@rushstack/terminal': 0.10.1(@types/node@20.11.26)
+      '@rushstack/ts-command-line': 4.19.2(@types/node@20.11.26)
       lodash: 4.17.21
       minimatch: 3.0.8
       resolve: 1.22.8
@@ -1664,7 +1667,7 @@ packages:
     dev: true
     optional: true
 
-  /@rushstack/node-core-library@4.1.0:
+  /@rushstack/node-core-library@4.1.0(@types/node@20.11.26):
     resolution: {integrity: sha512-qz4JFBZJCf1YN5cAXa1dP6Mki/HrsQxc/oYGAGx29dF2cwF2YMxHoly0FBhMw3IEnxo5fMj0boVfoHVBkpkx/w==}
     peerDependencies:
       '@types/node': '*'
@@ -1672,6 +1675,7 @@ packages:
       '@types/node':
         optional: true
     dependencies:
+      '@types/node': 20.11.26
       fs-extra: 7.0.1
       import-lazy: 4.0.0
       jju: 1.4.0
@@ -1687,7 +1691,7 @@ packages:
       strip-json-comments: 3.1.1
     dev: false
 
-  /@rushstack/terminal@0.10.1:
+  /@rushstack/terminal@0.10.1(@types/node@20.11.26):
     resolution: {integrity: sha512-C6Vi/m/84IYJTkfzmXr1+W8Wi3MmBjVF/q3za91Gb3VYjKbpALHVxY6FgH625AnDe5Z0Kh4MHKWA3Z7bqgAezA==}
     peerDependencies:
       '@types/node': '*'
@@ -1695,14 +1699,15 @@ packages:
       '@types/node':
         optional: true
     dependencies:
-      '@rushstack/node-core-library': 4.1.0
+      '@rushstack/node-core-library': 4.1.0(@types/node@20.11.26)
+      '@types/node': 20.11.26
       supports-color: 8.1.1
     dev: false
 
-  /@rushstack/ts-command-line@4.19.2:
+  /@rushstack/ts-command-line@4.19.2(@types/node@20.11.26):
     resolution: {integrity: sha512-cqmXXmBEBlzo9WtyUrHtF9e6kl0LvBY7aTSVX4jfnBfXWZQWnPq9JTFPlQZ+L/ZwjZ4HrNwQsOVvhe9oOucZkw==}
     dependencies:
-      '@rushstack/terminal': 0.10.1
+      '@rushstack/terminal': 0.10.1(@types/node@20.11.26)
       '@types/argparse': 1.0.38
       argparse: 1.0.10
       string-argv: 0.3.2
@@ -1884,12 +1889,12 @@ packages:
       '@ton/crypto': 3.2.0
     dev: false
 
-  /@truecarry/tlb-abi@0.1.1(@ton/core@0.56.3):
+  /@truecarry/tlb-abi@0.1.1(@ton/core@0.56.3)(@types/node@20.11.26):
     resolution: {integrity: sha512-GxPSGZ2qDXugA0FRijacCQifW/+Hwls0KkEPzseicYPigiJSseQHyJ4mSbMZ11Lfj79+ab90D7LifBwbD6lgCw==}
     peerDependencies:
       '@ton/core': ^0.56.3
     dependencies:
-      '@microsoft/api-extractor': 7.43.1
+      '@microsoft/api-extractor': 7.43.1(@types/node@20.11.26)
       '@ton/core': 0.56.3(@ton/crypto@3.2.0)
     transitivePeerDependencies:
       - '@types/node'
@@ -2096,7 +2101,6 @@ packages:
     resolution: {integrity: sha512-YwOMmyhNnAWijOBQweOJnQPl068Oqd4K3OFbTc6AHJwzweUwwWG3GIFY74OKks2PJUDkQPeddOQES9mLn1CTEQ==}
     dependencies:
       undici-types: 5.26.5
-    dev: true
 
   /@types/normalize-package-data@2.4.4:
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
@@ -8734,7 +8738,6 @@ packages:
 
   /undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
-    dev: true
 
   /unicorn-magic@0.1.0:
     resolution: {integrity: sha512-lRfVq8fE8gz6QMBuDM6a+LO3IAzTi05H6gCVaUpir2E1Rwpo4ZUog45KpNXKC/Mn3Yb9UDuHumeFTo9iV/D9FQ==}
@@ -8920,45 +8923,10 @@ packages:
       merge-anything: 5.1.7
       solid-js: 1.8.17
       solid-refresh: 0.6.3(solid-js@1.8.17)
-      vite: 5.2.10
+      vite: 5.2.10(@types/node@20.11.26)
       vitefu: 0.2.5(vite@5.2.10)
     transitivePeerDependencies:
       - supports-color
-    dev: true
-
-  /vite@5.2.10:
-    resolution: {integrity: sha512-PAzgUZbP7msvQvqdSD+ErD5qGnSFiGOoWmV5yAKUEI0kdhjbH6nMWVyZQC/hSc4aXwc0oJ9aEdIiF9Oje0JFCw==}
-    engines: {node: ^18.0.0 || >=20.0.0}
-    hasBin: true
-    peerDependencies:
-      '@types/node': ^18.0.0 || >=20.0.0
-      less: '*'
-      lightningcss: ^1.21.0
-      sass: '*'
-      stylus: '*'
-      sugarss: '*'
-      terser: ^5.4.0
-    peerDependenciesMeta:
-      '@types/node':
-        optional: true
-      less:
-        optional: true
-      lightningcss:
-        optional: true
-      sass:
-        optional: true
-      stylus:
-        optional: true
-      sugarss:
-        optional: true
-      terser:
-        optional: true
-    dependencies:
-      esbuild: 0.20.2
-      postcss: 8.4.38
-      rollup: 4.17.0
-    optionalDependencies:
-      fsevents: 2.3.3
     dev: true
 
   /vite@5.2.10(@types/node@20.11.26):
@@ -9005,7 +8973,7 @@ packages:
       vite:
         optional: true
     dependencies:
-      vite: 5.2.10
+      vite: 5.2.10(@types/node@20.11.26)
     dev: true
 
   /walk-up-path@1.0.0:

@@ -26,12 +26,9 @@ import {
 } from "solid-js";
 import { BlockchainTransaction } from "@ton/sandbox";
 import { parseInternal } from "@truecarry/tlb-abi";
-import { getEmulatedTxInfo } from "utils/src/getEmulatedTxInfo";
+import { type ParsedBlockchainTransaction, getEmulatedTxInfo } from "utils/src/getEmulatedTxInfo";
 import { isTestnet } from "@/storages/chain";
 
-type ParsedBlockchainTransaction = BlockchainTransaction & {
-  parsed?: ReturnType<typeof parseInternal>;
-};
 
 const TonStringifier = (input: unknown) =>
   JSON.stringify(
@@ -124,17 +121,6 @@ async function fetchOrder({
     isTestnet(),
   );
 
-  for (let i = 0; i < data.length; i++) {
-    const tx = data[i];
-    if (tx.inMessage.body) {
-      try {
-        const parsed = parseInternal(tx.inMessage.body.asSlice());
-        data[i].parsed = parsed;
-      } catch (e) {
-        //
-      }
-    }
-  }
   return data;
 }
 
