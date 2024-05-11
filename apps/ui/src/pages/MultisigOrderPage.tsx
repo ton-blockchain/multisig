@@ -1,4 +1,3 @@
-import {isTestnet} from "@/storages/chain";
 import { useParams } from "@solidjs/router";
 import {
   Address,
@@ -27,7 +26,8 @@ import {
 } from "solid-js";
 import { BlockchainTransaction } from "@ton/sandbox";
 import { parseInternal } from "@truecarry/tlb-abi";
-import { getEmulatedTxInfo } from "@/utils/getEmulatedTxInfo";
+import { getEmulatedTxInfo } from "utils/src/getEmulatedTxInfo";
+import { isTestnet } from "@/storages/chain";
 
 type ParsedBlockchainTransaction = BlockchainTransaction & {
   parsed?: ReturnType<typeof parseInternal>;
@@ -121,6 +121,7 @@ async function fetchOrder({
   const data: Array<ParsedBlockchainTransaction> = await getEmulatedTxInfo(
     msgCell,
     true,
+    isTestnet(),
   );
 
   for (let i = 0; i < data.length; i++) {

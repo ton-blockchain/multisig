@@ -1,3 +1,5 @@
+import { TonClient4 } from "@ton/ton";
+
 export const API_KEY =
   "d843619b379084d133f061606beecbf72ae2bf60e0622e808f2a3f631673599b";
 
@@ -57,3 +59,11 @@ export const sendToTonApi = async (
   }
   return json;
 };
+
+export function getTonClient4(isTestnet: boolean) {
+  return new TonClient4({
+    endpoint: isTestnet
+      ? "https://testnet-v4.tonhubapi.com"
+      : "https://mainnet-v4.tonhubapi.com",
+  });
+}

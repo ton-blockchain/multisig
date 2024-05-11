@@ -10,6 +10,7 @@ import {
 export async function getEmulatedTxInfo(
   cell: Cell | undefined,
   ignoreChecksig: boolean = false,
+  isTestnet: boolean = false,
 ) {
   const blockchain = await Blockchain.create({
     storage: new RemoteBlockchainStorage(

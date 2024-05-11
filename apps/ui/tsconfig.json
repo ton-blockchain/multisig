@@ -9,8 +9,11 @@
     "paths": {
       "@/*": ["./src/*"],
       "~/*": ["./src/*"],
-      "src/*": ["./src/*"]
-    }
+      "src/*": ["./src/*"],
+    },
+    "module": "ES2022",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "target": "ESNext",
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", "build"]
