@@ -1,5 +1,5 @@
 import { Address } from "@ton/core";
-import { sendToIndex } from "./MyNetworkProvider";
+import { sendToIndex } from "./api";
 
 export interface AddressInfo {
   isBounceable: boolean;

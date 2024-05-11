@@ -15,6 +15,31 @@ import { Order } from "./Order";
 
 type AddressInfo = ReturnType<(typeof Address)["parseFriendly"]>;
 
+interface ToncenterV3OutMsg {
+  hash: string; // base64
+  source: string; // raw address
+  destination: string; // raw address
+  value: string; // nanotons
+  fwd_fee: string; // nanotons
+  ihr_fee: string; // nanotons
+  created_lt: string;
+  created_at: string; // unixtime
+  opcode: string;
+  ihr_disabled: boolean;
+  bounce: boolean;
+  bounced: boolean;
+  import_fee: string | null;
+  message_content: {
+    hash: string; // base64
+    body: string; // base64
+    // decoded: null;
+  };
+  init_state: {
+    hash: string; // base64
+    body: string; // base64
+  };
+}
+
 const parseNewOrderInitStateBody = (cell: Cell) => {
   const slice = cell.beginParse();
   const multisigAddress = slice.loadAddress();
@@ -48,7 +73,8 @@ const parseNewOrderInitState = (
 /**
  * @param outMsg - out msg from toncenter v3
  */
-const parseNewOrderOutMsg = (outMsg: any) => {
+const parseNewOrderOutMsg = (outMsg: ToncenterV3OutMsg) => {
+  console.log("parseNewOrderOutMsg", outMsg);
   const orderAddress = Address.parse(outMsg.destination);
   const initState = Cell.fromBase64(outMsg.init_state.body);
   const parsed = parseNewOrderInitState(initState);
@@ -236,18 +262,17 @@ export const checkMultisig = async (
   // Last Orders
 
   let lastOrders: LastOrder[] = [];
-
   if (lastOrdersMode !== "none") {
-    const result = await sendToIndex(
+    const transactionsResult = await sendToIndex(
       "transactions",
       {
         account: addressToString(multisigAddress),
-        limit: 256,
+        limit: "256",
       },
       isTestnet,
     );
 
-    for (const tx of result.transactions) {
+    for (const tx of transactionsResult.transactions) {
       if (!tx.in_msg.message_content) continue;
       if (!tx.in_msg.message_content.body) continue;
 
@@ -261,6 +286,7 @@ export const checkMultisig = async (
       if (op === 0x75097f5d) {
         // execute
         try {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const queryId = inBodySlice.loadUintBig(64);
           const orderId = inBodySlice.loadUintBig(256);
           const orderAddress = Address.parse(tx.in_msg.source);
@@ -290,7 +316,7 @@ export const checkMultisig = async (
               id: orderId,
             },
           });
-        } catch (e: any) {
+        } catch (e) {
           lastOrders.push({
             utime: tx.now,
             transactionHash: tx.hash,
@@ -318,6 +344,7 @@ export const checkMultisig = async (
           }
 
           const queryId = inBodySlice.loadUint(64);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const _orderId = inBodySlice.loadUint(256);
           const isSigner = inBodySlice.loadUint(1);
           const index = inBodySlice.loadUint(8);
@@ -352,7 +379,7 @@ export const checkMultisig = async (
               id: orderId,
             },
           });
-        } catch (e: any) {
+        } catch (e) {
           console.log(e);
           lastOrders.push({
             utime: tx.now,
@@ -389,6 +416,7 @@ export const checkMultisig = async (
 
       lastOrders = Object.values(lastOrdersMap);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const findFailTx = (tonApiResult: any): boolean => {
         if (tonApiResult.transaction) {
           if (tonApiResult.transaction.success === false) {
@@ -411,12 +439,12 @@ export const checkMultisig = async (
             lastOrder.transactionHash,
             "base64",
           ).toString("hex");
-          const result = await sendToTonApi(
+          const sendResult = await sendToTonApi(
             `traces/${transactionHashHex}`,
             {},
             isTestnet,
           );
-          if (findFailTx(result)) {
+          if (findFailTx(sendResult)) {
             lastOrder.errorMessage = "Failed";
           }
         }
