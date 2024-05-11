@@ -5,6 +5,7 @@ import {
   beginCell,
   internal,
   storeMessageRelaxed,
+  toNano,
 } from "@ton/core";
 import {
   MultisigInfo,
@@ -29,6 +30,10 @@ import { parseInternal } from "@truecarry/tlb-abi";
 import { type ParsedBlockchainTransaction, getEmulatedTxInfo } from "utils/src/getEmulatedTxInfo";
 import { isTestnet } from "@/storages/chain";
 
+import {
+  addressToString,
+} from "utils";
+import { tonConnectUI } from "@/storages/ton-connect";
 
 const TonStringifier = (input: unknown) =>
   JSON.stringify(
@@ -164,6 +169,46 @@ export function MultisigOrderPage() {
     }
   });
 
+  const sendApprove = () => {
+    const myAddress = Address.parse(tonConnectUI().account?.address);
+    if (!myAddress) {
+      return;
+    }
+
+    const mySignerIndex = order().orderInfo.signers.findIndex((address) =>
+      address.address.equals(myAddress),
+    );
+
+    if (mySignerIndex === -1) {
+      return;
+    }
+
+    const DEFAULT_AMOUNT = toNano("0.1"); // 0.1 TON
+    const orderAddressString = addressToString(order().orderInfo.address);
+    const amount = DEFAULT_AMOUNT.toString();
+    const payload = beginCell()
+      .storeUint(0, 32)
+      .storeStringTail("approve")
+      .endCell()
+      .toBoc()
+      .toString("base64");
+
+    console.log({ orderAddressString, amount });
+
+    const transaction = {
+      validUntil: Math.floor(Date.now() / 1000) + 60, // 1 minute
+      messages: [
+        {
+          address: orderAddressString,
+          amount: amount,
+          payload: payload, // raw one-cell BoC encoded in Base64
+        },
+      ],
+    };
+
+    tonConnectUI().sendTransaction(transaction);
+  };
+
   return (
     <Switch
       fallback={
@@ -190,6 +235,19 @@ export function MultisigOrderPage() {
                     bounceable: true,
                   })}
                 </a>
+              </div>
+
+              <button
+                id="order_approveButton"
+                class="btn-primary"
+                onClick={sendApprove}
+              >
+                Approve
+              </button>
+
+              <div id="order_approveNote">
+                or just send 0.1 TON with "approve" text comment to order
+                address.
               </div>
 
               <div>
