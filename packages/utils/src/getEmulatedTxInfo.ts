@@ -7,6 +7,7 @@ import {
   RemoteBlockchainStorage,
 } from "@ton/sandbox";
 import { parseInternal } from "@truecarry/tlb-abi";
+import { megaLibsCell } from "./megaLibs";
 
 export type ParsedBlockchainTransaction = BlockchainTransaction & {
   parsed?: ReturnType<typeof parseInternal>;
@@ -22,8 +23,8 @@ export async function getEmulatedTxInfo(
       wrapTonClient4ForRemote(client()),
     ),
   });
-  // Somehow need to fetch libs
-  // blockchain.libs = megaLibsCell;
+  // Better to fetch only needed libs, but for now we just add all known libs
+  blockchain.libs = megaLibsCell;
 
   blockchain.verbosity = {
     blockchainLogs: true,

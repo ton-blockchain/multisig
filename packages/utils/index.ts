@@ -14,3 +14,7 @@ export {
   validateUserFriendlyAddress,
   sanitizeHTML,
 } from "./src/utils";
+export {
+  type ParsedBlockchainTransaction,
+  getEmulatedTxInfo,
+} from "./src/getEmulatedTxInfo";
