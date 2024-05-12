@@ -297,6 +297,7 @@ button:disabled, .btn:disabled {
 
 #newMultisig_addProposerButton, #newMultisig_addSignerButton {
     padding-left: 0;
+    display: flex;
 }
 
 /* loading */

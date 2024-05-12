@@ -1,6 +1,7 @@
+import {CreateMultisig} from "@/pages/CreateMultisig";
 import { Route, Router } from "@solidjs/router";
 import { TonConnectUI } from "@tonconnect/ui";
-import { Component, onMount } from "solid-js";
+import {Component, onMount, Show} from "solid-js";
 import "../css/main.css";
 import { Home } from "./pages/Home";
 import { ImportMultisig } from "./pages/ImportMultisig";
@@ -22,7 +23,7 @@ export const App: Component = () => {
   return (
     <>
       <div id="header">
-        <a href="https://ton.org">
+        <a href="/">
           <div id="header_logo"></div>
         </a>
         <div id="header_title">Multisig</div>
@@ -38,6 +39,7 @@ export const App: Component = () => {
           component={MultisigOrderPage}
         />
         <Route path="/start" component={StartScreen} />
+        <Route path="/create-multisig" component={CreateMultisig} />
         <Route path="/import-multisig" component={ImportMultisig} />
       </Router>
     </>

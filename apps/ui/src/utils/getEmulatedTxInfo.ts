@@ -1,3 +1,4 @@
+import {client, endpoint} from "@/storages/ton-client";
 import { Cell, loadMessage } from "@ton/core";
 import {
   type BlockchainTransaction,
@@ -5,7 +6,6 @@ import {
   wrapTonClient4ForRemote,
   RemoteBlockchainStorage,
 } from "@ton/sandbox";
-import { TonClient4 } from "@ton/ton";
 
 export async function getEmulatedTxInfo(
   cell: Cell | undefined,
@@ -13,11 +13,7 @@ export async function getEmulatedTxInfo(
 ) {
   const blockchain = await Blockchain.create({
     storage: new RemoteBlockchainStorage(
-      wrapTonClient4ForRemote(
-        new TonClient4({
-          endpoint: "https://mainnet-v4.tonhubapi.com",
-        }),
-      ),
+      wrapTonClient4ForRemote(client()),
     ),
   });
   // Somehow need to fetch libs

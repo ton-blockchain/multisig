@@ -1,3 +1,4 @@
+import {isTestnet} from "@/storages/chain";
 import { useParams } from "@solidjs/router";
 import {
   Address,
@@ -26,7 +27,6 @@ import {
 } from "solid-js";
 import { BlockchainTransaction } from "@ton/sandbox";
 import { parseInternal } from "@truecarry/tlb-abi";
-import { IS_TESTNET } from "@/utils/is-testnet";
 import { getEmulatedTxInfo } from "@/utils/getEmulatedTxInfo";
 
 type ParsedBlockchainTransaction = BlockchainTransaction & {
@@ -66,7 +66,7 @@ async function fetchMultisig(
     Address.parseFriendly(multisigAddress),
     MULTISIG_CODE,
     MULTISIG_ORDER_CODE,
-    IS_TESTNET,
+    isTestnet(),
     "aggregate",
     isFirst,
   );

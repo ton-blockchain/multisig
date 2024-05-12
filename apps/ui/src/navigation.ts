@@ -37,6 +37,14 @@ export function useNavigateToStartScreen(): () => void {
   };
 }
 
+export function useNavigateToCreateMultisigPage(): () => void {
+  const navigate = useNavigate();
+  return (): void => {
+    const createMultisigPage = "/create-multisig";
+    navigate(createMultisigPage);
+  };
+}
+
 export function useNavigateToImportMultisigPage(): () => void {
   const navigate = useNavigate();
   return (): void => {
@@ -49,6 +57,7 @@ export function useNavigation(): {
   toHome: () => void;
   toMultisig: (multisigAddress: string) => void;
   toStartScreen: () => void;
+  toCreateMultisig: () => void;
   toImportMultisig: () => void;
   toMultisigTx: (multisigAddress: string, txId: string) => void;
 } {
@@ -56,6 +65,7 @@ export function useNavigation(): {
     toHome: useNavigateToHome(),
     toMultisig: useNavigateToMultisigPage(),
     toStartScreen: useNavigateToStartScreen(),
+    toCreateMultisig: useNavigateToCreateMultisigPage(),
     toImportMultisig: useNavigateToImportMultisigPage(),
     toMultisigTx: useNavigateToMultisigTxPage(),
   };

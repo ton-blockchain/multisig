@@ -1,3 +1,4 @@
+import {isTestnet} from "@/storages/chain";
 import { useParams } from "@solidjs/router";
 import { Address } from "@ton/core";
 import {
@@ -17,7 +18,6 @@ import {
   Switch,
 } from "solid-js";
 import { MultisigIndex } from "../components/MultisigIndex";
-import { IS_TESTNET } from "../utils/is-testnet";
 
 function fetchMultisig(
   multisigAddress: string,
@@ -28,7 +28,7 @@ function fetchMultisig(
     Address.parseFriendly(multisigAddress),
     MULTISIG_CODE,
     MULTISIG_ORDER_CODE,
-    IS_TESTNET,
+    isTestnet(),
     "aggregate",
     isFirst,
   );
@@ -49,11 +49,19 @@ export const MultisigPage: Component = () => {
   );
 
   createEffect(() => {
-    if (loading() && multisigInfo.error) {
-      setError(multisigInfo.error);
+    if ((loading() || !multisigInfo.latest) && multisigInfo.error) {
+      if (multisigInfo.error instanceof Error) {
+        setError(multisigInfo.error.toString());
+      } else {
+        setError(multisigInfo.error);
+      }
+      setLoading(false);
     }
     if (loading() && !multisigInfo.loading) {
       setLoading(false);
+    }
+    if (!loading() && error() && multisigInfo.latest) {
+      setError(null);
     }
   });
 
@@ -72,16 +80,16 @@ export const MultisigPage: Component = () => {
   return (
     <>
       <Switch fallback={<MultisigIndex info={multisigInfo.latest} />}>
-        <Match when={loading()}>
-          <div id="loadingScreen" class="screen">
-            <div class="loading"></div>
-          </div>
-        </Match>
         <Match when={error()}>
           <div id="errorScreen" class="screen">
             <div class="panel">
               <div class="error">{error()}</div>
             </div>
+          </div>
+        </Match>
+        <Match when={loading()}>
+          <div id="loadingScreen" class="screen">
+            <div class="loading"></div>
           </div>
         </Match>
       </Switch>
