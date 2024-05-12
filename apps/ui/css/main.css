@@ -101,7 +101,7 @@ button:disabled, .btn:disabled {
     font-weight: bold;
 }
 
-.testnet-padding {
+.testnet-badge + #header {
     padding-top: 60px;
 }
 
