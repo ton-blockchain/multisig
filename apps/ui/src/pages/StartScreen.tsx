@@ -1,5 +1,5 @@
-import {Component} from "solid-js";
-import {useNavigation} from "../navigation";
+import { Component } from "solid-js";
+import { useNavigation } from "../navigation";
 
 export const StartScreen: Component = () => {
   const navigation = useNavigation();

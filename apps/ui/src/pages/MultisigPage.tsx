@@ -1,4 +1,3 @@
-import {isTestnet} from "@/storages/chain";
 import { useParams } from "@solidjs/router";
 import { Address } from "@ton/core";
 import {
@@ -17,6 +16,7 @@ import {
   onMount,
   Switch,
 } from "solid-js";
+import { isTestnet } from "@/storages/chain";
 import { MultisigIndex } from "../components/MultisigIndex";
 
 function fetchMultisig(

@@ -25,14 +25,13 @@ import {
   createResource,
   createSignal,
 } from "solid-js";
-import { BlockchainTransaction } from "@ton/sandbox";
-import { parseInternal } from "@truecarry/tlb-abi";
-import { type ParsedBlockchainTransaction, getEmulatedTxInfo } from "utils/src/getEmulatedTxInfo";
+import {
+  type ParsedBlockchainTransaction,
+  getEmulatedTxInfo,
+} from "utils/src/getEmulatedTxInfo";
+import { addressToString } from "utils";
 import { isTestnet } from "@/storages/chain";
 
-import {
-  addressToString,
-} from "utils";
 import { tonConnectUI } from "@/storages/ton-connect";
 
 const TonStringifier = (input: unknown) =>

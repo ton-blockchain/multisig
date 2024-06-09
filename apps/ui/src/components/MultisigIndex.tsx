@@ -1,14 +1,15 @@
-import {isTestnet} from "@/storages/chain";
-import {setMultisigAddress} from "@/storages/multisig-address";
-import {tonConnectUI, userAddress} from "@/storages/ton-connect";
-import {A, useParams} from "@solidjs/router";
-import {Address, fromNano} from "@ton/core";
-import {LastOrder, MultisigInfo} from "multisig";
-import {For, JSXElement, Match, Show, Switch} from "solid-js";
-import {useNavigation} from "src/navigation";
-import {addressToString, equalsMsgAddresses} from "utils";
+/* eslint-disable no-alert */
+import { A, useParams } from "@solidjs/router";
+import { fromNano } from "@ton/core";
+import { LastOrder, MultisigInfo } from "multisig";
+import { For, JSXElement, Match, Show, Switch } from "solid-js";
+import { useNavigation } from "src/navigation";
+import { addressToString, equalsMsgAddresses } from "utils";
+import { userAddress } from "@/storages/ton-connect";
+import { setMultisigAddress } from "@/storages/multisig-address";
+import { isTestnet } from "@/storages/chain";
 
-export function MultisigIndex({info}: { info: MultisigInfo }): JSXElement {
+export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
   const navigation = useNavigation();
   const params = useParams();
 
@@ -29,7 +30,7 @@ export function MultisigIndex({info}: { info: MultisigInfo }): JSXElement {
 
           <div id="mulisig_address" class="value">
             <a
-              href={`https://${isTestnet() ? 'testnet.' : ''}tonviewer.com/${params.address}`}
+              href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${params.address}`}
               target={"_blank"}
             >
               {params.address}
@@ -64,14 +65,25 @@ export function MultisigIndex({info}: { info: MultisigInfo }): JSXElement {
                   const signerAddress = signer.address.toString({
                     urlSafe: true,
                     bounceable: false,
-                    testOnly: isTestnet()
+                    testOnly: isTestnet(),
                   });
 
-                  return <div>
-                    #{i() + 1} — <a href={`https://${isTestnet() ? 'testnet.' : ''}tonviewer.com/${signerAddress}`}
-                                     target="_blank">{signerAddress}</a>
-                    {equalsMsgAddresses(signer.address, userAddress()) ? (<div class="badge">It's you</div>) : ''}
-                  </div>
+                  return (
+                    <div>
+                      #{i() + 1} —{" "}
+                      <a
+                        href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${signerAddress}`}
+                        target="_blank"
+                      >
+                        {signerAddress}
+                      </a>
+                      {equalsMsgAddresses(signer.address, userAddress()) ? (
+                        <div class="badge">It's you</div>
+                      ) : (
+                        ""
+                      )}
+                    </div>
+                  );
                 }}
               </For>
             </div>
@@ -83,14 +95,25 @@ export function MultisigIndex({info}: { info: MultisigInfo }): JSXElement {
                   const proposerAddress = proposer.address.toString({
                     urlSafe: true,
                     bounceable: false,
-                    testOnly: isTestnet()
+                    testOnly: isTestnet(),
                   });
 
-                  return <div>
-                    #{i() + 1} — <a href={`https://${isTestnet() ? 'testnet.' : ''}tonviewer.com/${proposerAddress}`}
-                                     target="_blank">{proposerAddress}</a>
-                    {equalsMsgAddresses(proposer.address, userAddress()) ? (<div class="badge">It's you</div>) : ''}
-                  </div>
+                  return (
+                    <div>
+                      #{i() + 1} —{" "}
+                      <a
+                        href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${proposerAddress}`}
+                        target="_blank"
+                      >
+                        {proposerAddress}
+                      </a>
+                      {equalsMsgAddresses(proposer.address, userAddress()) ? (
+                        <div class="badge">It's you</div>
+                      ) : (
+                        ""
+                      )}
+                    </div>
+                  );
                 }}
               </For>
             </div>
@@ -107,24 +130,22 @@ export function MultisigIndex({info}: { info: MultisigInfo }): JSXElement {
             </button>
           </div>
 
-          <button id="multisig_createNewOrderButton" class="btn-primary" onClick={createNewOrder}>
+          <button
+            id="multisig_createNewOrderButton"
+            class="btn-primary"
+            onClick={createNewOrder}
+          >
             Create new order
           </button>
 
-          <OrdersList info={info}/>
+          <OrdersList info={info} />
         </div>
       </div>
     </div>
   );
 }
 
-function OrdersList({info}: { info: MultisigInfo }): JSXElement {
-  const userAccount = tonConnectUI().account;
-
-  const userAddress = userAccount?.address
-    ? Address.parse(userAccount.address)
-    : undefined;
-
+function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
   return (
     <div id="mainScreen_ordersList">
       <For each={info.lastOrders}>
@@ -141,9 +162,9 @@ function OrdersList({info}: { info: MultisigInfo }): JSXElement {
             : formatOrderType(lastOrder);
 
           let signerText = "";
-          if (lastOrder.type === "pending" && userAddress) {
+          if (lastOrder.type === "pending" && userAddress()) {
             const myIndex = lastOrder.orderInfo.signers.findIndex((signer) =>
-              signer.address.equals(userAddress),
+              signer.address.equals(userAddress()),
             );
             if (myIndex > -1) {
               const mask = 1 << myIndex;
@@ -162,7 +183,7 @@ function OrdersList({info}: { info: MultisigInfo }): JSXElement {
               order-address={addressToString(lastOrder.order.address)}
               href={`/multisig/${info.address.address.toString({
                 bounceable: true,
-                urlSafe: true
+                urlSafe: true,
               })}/${lastOrder.order.id.toString()}`}
             >
               <Switch>
