@@ -1,4 +1,4 @@
-import { ParsedBlockchainTransaction, fromUnits } from "utils";
+import { ParsedBlockchainTransaction, fromUnits, getAddressName } from "utils";
 import { Accessor, For, createResource } from "solid-js";
 import { Address, TupleItemSlice } from "@ton/core";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
@@ -152,6 +152,35 @@ async function replaceJettonWallets({
     );
   }
   const rows = await Promise.all(promises);
+
+  // transpose rows to table address/asset
+  /*
+    | Address | TON | JETTON1 | JETTON2 |
+    |---------|-----|---------|---------|
+    | 0x123   | 100 | 200     | 300     |
+    | 0x456   | 400 | 500     | 600     |
+  */
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const table: any = {};
+  for (const row of rows) {
+    const toAddress = row.isMe
+      ? "Multisig"
+      : await getAddressName(Address.parse(row.toAddress), false);
+    if (!table[toAddress]) {
+      table[toAddress] = {};
+    }
+    table[toAddress][row.assetName] = row.amount;
+  }
+  // for (const row of rows) {
+  //   if (!table.has(row.toAddress)) {
+  //     table.set(row.toAddress, new Map());
+  //   }
+  //   table.get(row.toAddress).set(row.assetName, row.amount);
+  // }
+
+  console.table(table);
+
   return rows;
 }
 

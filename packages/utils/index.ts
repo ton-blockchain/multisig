@@ -10,6 +10,7 @@ export {
   equalsMsgAddresses,
   formatAddressAndUrl,
   getAddressFormat,
+  getAddressName,
   makeAddressLink,
   validateUserFriendlyAddress,
   sanitizeHTML,

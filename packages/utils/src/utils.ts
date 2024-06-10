@@ -1,5 +1,5 @@
 import { Address } from "@ton/core";
-import { sendToIndex } from "./api";
+import { getTonapi, sendToIndex } from "./api";
 
 export interface AddressInfo {
   isBounceable: boolean;
@@ -30,6 +30,7 @@ export const explorerUrl = (address: string, isTestnet: boolean): string => {
 };
 
 const addressCache: { [key: string]: string } = {};
+const addressNameCache: { [key: string]: string } = {};
 
 export const getAddressFormat = async (
   address: Address,
@@ -49,6 +50,23 @@ export const getAddressFormat = async (
   }
 
   return Address.parseFriendly(friendly);
+};
+
+export const getAddressName = async (
+  address: Address,
+  isTestnet: boolean,
+): Promise<string> => {
+  const raw = address.toRawString();
+
+  let friendly = addressNameCache[raw];
+  if (!friendly) {
+    const tonapi = getTonapi(isTestnet);
+    const result = await tonapi.accounts.getAccount(raw);
+    friendly = result.name ?? result.address;
+    addressNameCache[raw] = friendly;
+  }
+
+  return friendly;
 };
 
 export const addressToString = (address: AddressInfo): string => {
