@@ -1,5 +1,5 @@
 import { ParsedBlockchainTransaction, fromUnits, getAddressName } from "utils";
-import { Accessor, For, createResource } from "solid-js";
+import {Accessor, For, createResource, createEffect} from "solid-js";
 import { Address, TupleItemSlice } from "@ton/core";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import { multisigAddress } from "@/storages/multisig-address";
@@ -193,8 +193,8 @@ export function OrderBalanceSheet({
   // const [tonsMap, setTonsMap] = createSignal(new Map<string, bigint>());
 
   const [jettonComputedSheets] = createResource(
-    { emulated: emulated() },
-    replaceJettonWallets,
+    emulated,
+    () => replaceJettonWallets({ emulated: emulated() }),
     {},
   );
 
