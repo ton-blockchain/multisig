@@ -1,41 +1,22 @@
-import { useParams } from "@solidjs/router";
+import {OrderBalanceSheet} from "@/components/OrderBalanceSheet";
+import {isTestnet} from "@/storages/chain";
+import {setMultisigAddress} from "@/storages/multisig-address";
+
+import {tonConnectUI} from "@/storages/ton-connect";
+import {useParams} from "@solidjs/router";
+import {Address, beginCell, Cell, internal, storeMessageRelaxed, toNano,} from "@ton/core";
 import {
-  Address,
-  Cell,
-  beginCell,
-  internal,
-  storeMessageRelaxed,
-  toNano,
-} from "@ton/core";
-import {
-  MultisigInfo,
   checkMultisig,
+  checkMultisigOrder,
   MULTISIG_CODE,
   MULTISIG_ORDER_CODE,
-  checkMultisigOrder,
+  MultisigInfo,
   MultisigOrderInfo,
   Op,
 } from "multisig";
-import {
-  For,
-  Match,
-  Switch,
-  createEffect,
-  createMemo,
-  createResource,
-  createSignal,
-} from "solid-js";
-import {
-  type ParsedBlockchainTransaction,
-  getEmulatedTxInfo,
-  addressToString,
-} from "utils";
-import { EmulationResult } from "utils/src/getEmulatedTxInfo";
-import { isTestnet } from "@/storages/chain";
-
-import { tonConnectUI } from "@/storages/ton-connect";
-import { OrderBalanceSheet } from "@/components/OrderBalanceSheet";
-import { setMultisigAddress } from "@/storages/multisig-address";
+import {createEffect, createMemo, createResource, createSignal, For, Match, Switch,} from "solid-js";
+import {addressToString, fromUnits, getEmulatedTxInfo, type ParsedBlockchainTransaction,} from "utils";
+import {EmulationResult} from "utils/src/getEmulatedTxInfo";
 
 const TonStringifier = (input: unknown) =>
   JSON.stringify(
@@ -88,14 +69,14 @@ async function fetchMultisig(
   );
   setMultisigAddress(Address.parse(multisigAddress));
 
-  return { order: multisig, orderInfo };
+  return {order: multisig, orderInfo};
 }
 
 async function fetchOrder({
-  multisigAddress,
-  order,
-  orderInfo,
-}: {
+                            multisigAddress,
+                            order,
+                            orderInfo,
+                          }: {
   multisigAddress: string;
   order: MultisigInfo;
   orderInfo: MultisigOrderInfo;
@@ -135,7 +116,7 @@ export function MultisigOrderPage() {
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal(null);
   const [multisigInfo] = createResource(
-    { multisigAddress: addressQuery(), orderId: orderIdQuery() },
+    {multisigAddress: addressQuery(), orderId: orderIdQuery()},
     fetchMultisig,
     {},
   );
@@ -191,7 +172,7 @@ export function MultisigOrderPage() {
       .toBoc()
       .toString("base64");
 
-    console.log({ orderAddressString, amount });
+    console.log({orderAddressString, amount});
 
     const transaction = {
       validUntil: Math.floor(Date.now() / 1000) + 60, // 1 minute
@@ -248,11 +229,11 @@ export function MultisigOrderPage() {
                 address.
               </div>
 
-              <OrderBalanceSheet emulated={emulatedOrder} />
+              <OrderBalanceSheet emulated={emulatedOrder}/>
 
-              <div>
+              <div class={"flex flex-col gap-4"}>
                 <For each={emulatedOrder()?.transactions}>
-                  {(item) => <TxRow item={item} />}
+                  {(item) => <TxRow item={item}/>}
                 </For>
               </div>
             </div>
@@ -284,7 +265,7 @@ export function MultisigOrderPage() {
   );
 }
 
-function TxRow({ item }: { item: ParsedBlockchainTransaction }) {
+function TxRow({item}: { item: ParsedBlockchainTransaction }) {
   const to = item?.inMessage?.info?.dest;
   const from = item?.inMessage?.info?.src ?? "external";
 
@@ -295,22 +276,27 @@ function TxRow({ item }: { item: ParsedBlockchainTransaction }) {
     }
   }
   return (
-    <div>
-      <div>Transaction</div>
-      <div>From: {from.toString()}</div>
-      <div>To: {to?.toString()}</div>
+    <details class={"p-4 border rounded-xl"}>
+      <summary>
+        <div>Transaction</div>
+        <div>From: {from.toString()}</div>
+        <div>To: {to?.toString()}</div>
+        <div>
+          Amount:{" "}
+          {item.inMessage.info.type === "internal"
+            ? `${fromUnits(item.inMessage.info.value.coins.toString(), 9)} TON`
+            : ""}
+        </div>
+        <div>OutMessagesCount: {item.outMessagesCount}</div>
+        <div>Compute Exit: {computeExit}</div>
+      </summary>
 
-      <div>
-        Amount:{" "}
-        {item.inMessage.info.type === "internal"
-          ? item.inMessage.info.value.coins.toString()
-          : ""}
-      </div>
-      <div>OutMessagesCount: {item.outMessagesCount}</div>
-      <div>Compute Exit: {computeExit}</div>
-      <div>
-        Parsed: <pre>{TonStringifier(item.parsed)}</pre>
-      </div>
-    </div>
+      <blockquote>
+        Parsed:
+        <div class={"text-sm overflow-x-auto"}>
+          <pre>{TonStringifier(item.parsed)}</pre>
+        </div>
+      </blockquote>
+    </details>
   );
 }

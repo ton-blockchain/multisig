@@ -22,9 +22,13 @@
     "jetton": "workspace:*",
     "multisig": "workspace:*",
     "solid-js": "^1.6.9",
+    "tonapi-sdk-js": "^1.0.10",
     "utils": "workspace:*"
   },
   "devDependencies": {
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.4",
     "vite": "5.2.10",
     "vite-plugin-solid": "2.10.2"
   }

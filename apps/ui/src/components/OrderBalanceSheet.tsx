@@ -1,9 +1,11 @@
-import { ParsedBlockchainTransaction, fromUnits, getAddressName } from "utils";
-import {Accessor, For, createResource, createEffect} from "solid-js";
 import { Address, TupleItemSlice } from "@ton/core";
+import { Accessor, createResource, For } from "solid-js";
+import { Account } from "tonapi-sdk-js";
+import { fromUnits, GetAccount, ParsedBlockchainTransaction } from "utils";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
-import { multisigAddress } from "@/storages/multisig-address";
 import { tonapiClient } from "@/storages/ton-client";
+import { multisigAddress } from "@/storages/multisig-address";
+import { isTestnet } from "@/storages/chain";
 
 type BalanceSheetRow = {
   assetAddress: string;
@@ -13,15 +15,29 @@ type BalanceSheetRow = {
   isMe: boolean;
   decimals: number;
 };
+
+type AssetInfo = {
+  assetName: string;
+  amount: bigint;
+  decimals: number;
+};
+
+type TransposeBalanceSheetRow = {
+  address: string;
+  isMe: boolean;
+  account: Account;
+  balances: Record<string, AssetInfo>;
+};
+
 async function replaceJettonWallets({
   emulated,
 }: {
   emulated: EmulationResult;
-}) {
+}): Promise<{ rows: TransposeBalanceSheetRow[]; keys: string[] }> {
   const tonsMapLocal = new Map();
   // console.log("transactions", transactions());
   if (!emulated?.transactions) {
-    return [];
+    return { rows: [], keys: [] };
   }
   for (const [i, tx] of emulated.transactions.entries()) {
     console.log("Processing tx", tx);
@@ -153,6 +169,41 @@ async function replaceJettonWallets({
   }
   const rows = await Promise.all(promises);
 
+  const keys: Set<string> = new Set();
+  const transposeRowsMap: Map<string, TransposeBalanceSheetRow> = new Map();
+  await Promise.all(
+    rows.map(async (row) => {
+      const account = await GetAccount.load({
+        address: Address.parse(row.toAddress),
+        isTestnet: isTestnet(),
+      });
+
+      // add account to transposeRows map
+      if (!transposeRowsMap.has(row.toAddress)) {
+        transposeRowsMap.set(row.toAddress, {
+          address: row.toAddress,
+          isMe: row.isMe,
+          account: account,
+          balances: {},
+        });
+      }
+
+      // add asset to transposeRows map
+      const balances = transposeRowsMap.get(row.toAddress).balances;
+      if (balances[row.assetName]) {
+        throw new Error("Unexpected duplicate asset");
+      }
+      balances[row.assetName] = {
+        assetName: row.assetName,
+        amount: row.amount,
+        decimals: row.decimals,
+      };
+
+      // add asset to keys
+      keys.add(row.assetName);
+    }),
+  );
+
   // transpose rows to table address/asset
   /*
     | Address | TON | JETTON1 | JETTON2 |
@@ -161,27 +212,10 @@ async function replaceJettonWallets({
     | 0x456   | 400 | 500     | 600     |
   */
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const table: any = {};
-  for (const row of rows) {
-    const toAddress = row.isMe
-      ? "Multisig"
-      : await getAddressName(Address.parse(row.toAddress), false);
-    if (!table[toAddress]) {
-      table[toAddress] = {};
-    }
-    table[toAddress][row.assetName] = row.amount;
-  }
-  // for (const row of rows) {
-  //   if (!table.has(row.toAddress)) {
-  //     table.set(row.toAddress, new Map());
-  //   }
-  //   table.get(row.toAddress).set(row.assetName, row.amount);
-  // }
-
-  console.table(table);
-
-  return rows;
+  return {
+    rows: Array.from(transposeRowsMap.values()),
+    keys: Array.from(keys),
+  };
 }
 
 export function OrderBalanceSheet({
@@ -202,17 +236,76 @@ export function OrderBalanceSheet({
 
   return (
     <div>
-      <h1>Order Balance Sheet</h1>
-      <For each={jettonComputedSheets()}>
-        {({ assetName, toAddress, amount: balance, isMe, decimals }) => (
-          <div>
-            <div class={isMe ? "me" : "not_me"}>
-              Address: {assetName} {isMe ? "Multisig" : toAddress}
-            </div>
-            <div>Balance: {fromUnits(balance.toString(), decimals)}</div>
-          </div>
-        )}
-      </For>
+      <h1 class={"text-2xl font-bold"}>Order Balance Sheet</h1>
+
+      <table class="table-fixed border-separate border-spacing-0 border border-slate-500">
+        <thead>
+          <tr>
+            <th class="border border-slate-600 px-2 text-left h-4">Address</th>
+            <For each={jettonComputedSheets()?.keys ?? []}>
+              {(key) => {
+                return (
+                  <th class="border border-slate-600 px-2 text-right h-4">
+                    {key}
+                  </th>
+                );
+              }}
+            </For>
+          </tr>
+        </thead>
+        <tbody>
+          <For each={jettonComputedSheets()?.rows ?? []}>
+            {({ isMe, address, account, balances }) => {
+              const keys = jettonComputedSheets().keys;
+              const friendlyAddress = Address.parse(address).toString({
+                urlSafe: true,
+                bounceable: !account.is_wallet,
+              });
+
+              return (
+                <tr>
+                  <td class="border border-slate-600 px-2 text-left">
+                    <a
+                      href={`https://tonviewer.com/${friendlyAddress}`}
+                      target={"_blank"}
+                    >
+                      {isMe ? <b>Multisig</b> : <pre>{friendlyAddress}</pre>}
+                    </a>
+                    <div>
+                      {account.interfaces?.join(", ") ?? "unknown contract"}
+                    </div>
+                  </td>
+                  <For each={keys}>
+                    {(key) => {
+                      const assetInfo = balances[key];
+                      if (!assetInfo) {
+                        return <td class="border border-slate-600 px-2"></td>;
+                      }
+
+                      let amount = fromUnits(
+                        assetInfo.amount.toString(),
+                        assetInfo.decimals,
+                      );
+
+                      // add 0 after dot if needed
+                      if (amount.indexOf(".") !== -1) {
+                        const [left, right] = amount.split(".");
+                        amount = `${left}.${right.padEnd(assetInfo.decimals, "0")}`;
+                      }
+
+                      return (
+                        <td class="border border-slate-600 px-2 text-right">
+                          {amount}
+                        </td>
+                      );
+                    }}
+                  </For>
+                </tr>
+              );
+            }}
+          </For>
+        </tbody>
+      </table>
     </div>
   );
 }

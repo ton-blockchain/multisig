@@ -11,6 +11,7 @@ export {
   formatAddressAndUrl,
   getAddressFormat,
   getAddressName,
+  GetAccount,
   makeAddressLink,
   validateUserFriendlyAddress,
   sanitizeHTML,

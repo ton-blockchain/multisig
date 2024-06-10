@@ -1,4 +1,6 @@
 import { Address } from "@ton/core";
+import DataLoader from "dataloader";
+import { Account } from "tonapi-sdk-js";
 import { getTonapi, sendToIndex } from "./api";
 
 export interface AddressInfo {
@@ -68,6 +70,29 @@ export const getAddressName = async (
 
   return friendly;
 };
+
+export const GetAccount = new DataLoader<
+  {
+    address: Address;
+    isTestnet: boolean;
+  },
+  Account,
+  string
+>(
+  async (keys) => {
+    const isTestnet = keys[0].isTestnet;
+    const tonapi = getTonapi(isTestnet);
+    const result = await tonapi.accounts.getAccounts({
+      account_ids: keys.map((p) => p.address.toRawString()),
+    });
+    return result.accounts;
+  },
+  {
+    cacheKeyFn({ address, isTestnet }) {
+      return `${address.toRawString()} ${isTestnet.toString()}`;
+    },
+  },
+);
 
 export const addressToString = (address: AddressInfo): string => {
   return address.address.toString({
