@@ -1,5 +1,5 @@
 export { MyNetworkProvider } from "./src/MyNetworkProvider";
-export { sendToIndex, sendToTonApi } from "./src/api";
+export { sendToIndex, sendToTonApi, getTonapi, getTonClient4 } from "./src/api";
 export { toUnits, fromUnits } from "./src/units";
 export {
   explorerUrl,

@@ -1,4 +1,5 @@
 import { TonClient4 } from "@ton/ton";
+import { HttpClient, Api } from "tonapi-sdk-js";
 
 export const API_KEY =
   "d843619b379084d133f061606beecbf72ae2bf60e0622e808f2a3f631673599b";
@@ -59,6 +60,28 @@ export const sendToTonApi = async (
   }
   return json;
 };
+
+export function getTonapi(isTestnet: boolean) {
+  const mainnetRpc = "https://tonapi.io";
+  const testnetRpc = "https://testnet.tonapi.io";
+  const rpc = isTestnet ? testnetRpc : mainnetRpc;
+
+  // Configure the HTTP client with your host and token
+  const httpClient = new HttpClient({
+    baseUrl: rpc,
+    baseApiParams: {
+      headers: {
+        Authorization:
+          "Bearer AHIQH4F4Y4XR6UIAAAAOGYUHWOWLUS6ZIPEXSCLAPOMMD6FSNMPUKHCIJHIP52YTU4VKURA",
+        "Content-type": "application/json",
+      },
+    },
+  });
+
+  // Initialize the API client
+  const client = new Api(httpClient);
+  return client;
+}
 
 export function getTonClient4(isTestnet: boolean) {
   return new TonClient4({

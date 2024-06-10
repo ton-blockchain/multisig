@@ -28,11 +28,14 @@ import {
 import {
   type ParsedBlockchainTransaction,
   getEmulatedTxInfo,
-} from "utils/src/getEmulatedTxInfo";
-import { addressToString } from "utils";
+  addressToString,
+} from "utils";
+import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import { isTestnet } from "@/storages/chain";
 
 import { tonConnectUI } from "@/storages/ton-connect";
+import { OrderBalanceSheet } from "@/components/OrderBalanceSheet";
+import { setMultisigAddress } from "@/storages/multisig-address";
 
 const TonStringifier = (input: unknown) =>
   JSON.stringify(
@@ -83,6 +86,7 @@ async function fetchMultisig(
     false,
     true,
   );
+  setMultisigAddress(Address.parse(multisigAddress));
 
   return { order: multisig, orderInfo };
 }
@@ -95,13 +99,12 @@ async function fetchOrder({
   multisigAddress: string;
   order: MultisigInfo;
   orderInfo: MultisigOrderInfo;
-}) {
+}): Promise<EmulationResult> {
   if (!order) {
-    return [];
+    return undefined;
   }
 
-  const balance = orderInfo.tonBalance;
-
+  const balance = BigInt(orderInfo.tonBalance);
   const msg = internal({
     to: Address.parse(multisigAddress),
     body: beginCell()
@@ -119,11 +122,7 @@ async function fetchOrder({
 
   const msgCell = beginCell().store(storeMessageRelaxed(msg)).endCell();
 
-  const data: Array<ParsedBlockchainTransaction> = await getEmulatedTxInfo(
-    msgCell,
-    true,
-    isTestnet(),
-  );
+  const data = await getEmulatedTxInfo(msgCell, true, isTestnet());
 
   return data;
 }
@@ -249,8 +248,10 @@ export function MultisigOrderPage() {
                 address.
               </div>
 
+              <OrderBalanceSheet emulated={emulatedOrder} />
+
               <div>
-                <For each={emulatedOrder()}>
+                <For each={emulatedOrder()?.transactions}>
                   {(item) => <TxRow item={item} />}
                 </For>
               </div>

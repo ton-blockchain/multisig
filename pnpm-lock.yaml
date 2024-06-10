@@ -133,6 +133,9 @@ importers:
       '@solidjs/router':
         specifier: 0.13.2
         version: 0.13.2(solid-js@1.8.17)
+      '@ton/sandbox':
+        specifier: ^0.19.0
+        version: 0.19.0(@ton/core@0.56.3)(@ton/crypto@3.2.0)
       '@tonconnect/protocol':
         specifier: 2.2.6
         version: 2.2.6
@@ -202,6 +205,9 @@ importers:
       '@truecarry/tlb-abi':
         specifier: ^0.1.1
         version: 0.1.1(@ton/core@0.56.3)(@types/node@20.11.26)
+      tonapi-sdk-js:
+        specifier: ^1.0.10
+        version: 1.0.10
     devDependencies:
       '@types/node':
         specifier: 20.11.26
@@ -8437,6 +8443,10 @@ packages:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
     dev: true
+
+  /tonapi-sdk-js@1.0.10:
+    resolution: {integrity: sha512-fwVRzQyq1igox3NiP/uYgFwH9dVC+ky01VTG64MiGL57q8vBlM/iJZpcmm4/0CmKyGf0Z/y4ox0sykJEaNlP2A==}
+    dev: false
 
   /tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}

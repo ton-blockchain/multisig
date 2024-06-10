@@ -101,3 +101,14 @@ export const sanitizeHTML = (text: string): string => {
   d.innerText = text;
   return d.innerHTML;
 };
+
+export function bigIntToBuffer(data: bigint | undefined): Buffer {
+  if (!data) {
+    return Buffer.from([]);
+  }
+  const hexStr = data.toString(16);
+  const pad = hexStr.padStart(64, "0");
+  const hashHex = Buffer.from(pad, "hex");
+
+  return hashHex;
+}

@@ -1,4 +1,3 @@
-import {client, endpoint} from "@/storages/ton-client";
 import { Cell, loadMessage } from "@ton/core";
 import {
   type BlockchainTransaction,
@@ -7,20 +6,28 @@ import {
   RemoteBlockchainStorage,
 } from "@ton/sandbox";
 import { parseInternal } from "@truecarry/tlb-abi";
+// import { client } from "@/storages/ton-client";
 import { megaLibsCell } from "./megaLibs";
+import { getTonClient4 } from "./api";
 
 export type ParsedBlockchainTransaction = BlockchainTransaction & {
   parsed?: ReturnType<typeof parseInternal>;
+  parent?: ParsedBlockchainTransaction;
+};
+
+export type EmulationResult = {
+  transactions: Array<ParsedBlockchainTransaction>;
+  blockchain: Blockchain;
 };
 
 export async function getEmulatedTxInfo(
   cell: Cell | undefined,
   ignoreChecksig: boolean = false,
   isTestnet: boolean = false,
-): Promise<ParsedBlockchainTransaction[]> {
+): Promise<EmulationResult> {
   const blockchain = await Blockchain.create({
     storage: new RemoteBlockchainStorage(
-      wrapTonClient4ForRemote(client()),
+      wrapTonClient4ForRemote(getTonClient4(isTestnet)),
     ),
   });
   // Better to fetch only needed libs, but for now we just add all known libs
@@ -55,5 +62,8 @@ export async function getEmulatedTxInfo(
     }
   }
 
-  return transactions;
+  return {
+    blockchain,
+    transactions,
+  };
 }
