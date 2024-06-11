@@ -15,8 +15,10 @@ export {
   makeAddressLink,
   validateUserFriendlyAddress,
   sanitizeHTML,
+  IsTxGenericSuccess,
 } from "./src/utils";
 export {
   type ParsedBlockchainTransaction,
   getEmulatedTxInfo,
 } from "./src/getEmulatedTxInfo";
+export { cn } from "./src/cn";

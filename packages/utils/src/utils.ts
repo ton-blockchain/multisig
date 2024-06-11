@@ -2,6 +2,7 @@ import { Address } from "@ton/core";
 import DataLoader from "dataloader";
 import { Account } from "tonapi-sdk-js";
 import { getTonapi, sendToIndex } from "./api";
+import { ParsedBlockchainTransaction } from "./getEmulatedTxInfo";
 
 export interface AddressInfo {
   isBounceable: boolean;
@@ -154,4 +155,27 @@ export function bigIntToBuffer(data: bigint | undefined): Buffer {
   const hashHex = Buffer.from(pad, "hex");
 
   return hashHex;
+}
+
+export function IsTxGenericSuccess(tx: ParsedBlockchainTransaction) {
+  if (tx.description.type !== "generic") {
+    return false;
+  }
+
+  if (tx.description.aborted) {
+    return false;
+  }
+
+  if (
+    tx.description.computePhase.type !== "vm" ||
+    tx.description.computePhase.exitCode !== 0
+  ) {
+    return false;
+  }
+
+  if (tx.description.actionPhase.resultCode !== 0) {
+    return false;
+  }
+
+  return true;
 }

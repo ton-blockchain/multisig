@@ -1,7 +1,7 @@
 import { Address, TupleItemSlice } from "@ton/core";
 import { Accessor, createResource, For } from "solid-js";
 import { Account } from "tonapi-sdk-js";
-import { fromUnits, GetAccount, ParsedBlockchainTransaction } from "utils";
+import { fromUnits, GetAccount, IsTxGenericSuccess } from "utils";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import { tonapiClient } from "@/storages/ton-client";
 import { multisigAddress } from "@/storages/multisig-address";
@@ -235,7 +235,7 @@ export function OrderBalanceSheet({
   // console.log("tonsMap", tonsMap.entries());
 
   return (
-    <div>
+    <div class="my-4">
       <h1 class={"text-2xl font-bold"}>Order Balance Sheet</h1>
 
       <table class="table-fixed border-separate border-spacing-0 border border-slate-500">
@@ -308,27 +308,4 @@ export function OrderBalanceSheet({
       </table>
     </div>
   );
-}
-
-function IsTxGenericSuccess(tx: ParsedBlockchainTransaction) {
-  if (tx.description.type !== "generic") {
-    return false;
-  }
-
-  if (tx.description.aborted) {
-    return false;
-  }
-
-  if (
-    tx.description.computePhase.type !== "vm" ||
-    tx.description.computePhase.exitCode !== 0
-  ) {
-    return false;
-  }
-
-  if (tx.description.actionPhase.resultCode !== 0) {
-    return false;
-  }
-
-  return true;
 }

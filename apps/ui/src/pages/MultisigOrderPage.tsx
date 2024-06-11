@@ -2,7 +2,6 @@ import { useParams } from "@solidjs/router";
 import {
   Address,
   beginCell,
-  Cell,
   internal,
   storeMessageRelaxed,
   toNano,
@@ -27,37 +26,24 @@ import {
 } from "solid-js";
 import {
   addressToString,
-  fromUnits,
+  cn,
   getEmulatedTxInfo,
-  type ParsedBlockchainTransaction,
+  IsTxGenericSuccess,
 } from "utils";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import { tonConnectUI } from "@/storages/ton-connect";
-import { setMultisigAddress } from "@/storages/multisig-address";
+import {
+  multisigAddress,
+  setMultisigAddress,
+} from "@/storages/multisig-address";
 import { isTestnet } from "@/storages/chain";
 import { OrderBalanceSheet } from "@/components/OrderBalanceSheet";
-import { AddressLink } from "@/components/AddressLink";
-
-const TonStringifier = (input: unknown) =>
-  JSON.stringify(
-    input,
-    (key, value) => {
-      if (value instanceof Cell) {
-        return value.toBoc().toString("base64");
-      }
-      if (value?.type === "Buffer") {
-        return Buffer.from(value.data).toString("base64");
-      }
-      if (value instanceof Address) {
-        return value.toString();
-      }
-      return value;
-    },
-    2,
-  );
+import { useNavigation } from "@/navigation";
+import { EmulatedTxRow } from "@/components/EmulatedTxRow";
 
 async function fetchMultisig(
   {
+    // eslint-disable-next-line @typescript-eslint/no-shadow
     multisigAddress,
     orderId,
   }: {
@@ -93,6 +79,7 @@ async function fetchMultisig(
 }
 
 async function fetchOrder({
+  // eslint-disable-next-line @typescript-eslint/no-shadow
   multisigAddress,
   order,
   orderInfo,
@@ -208,6 +195,17 @@ export function MultisigOrderPage() {
     tonConnectUI().sendTransaction(transaction);
   };
 
+  const emulationErrored = createMemo(() => {
+    return emulatedOrder()?.transactions.some((tx) => !IsTxGenericSuccess(tx));
+  });
+
+  const navigation = useNavigation();
+
+  const goToMultisigPage = () => {
+    navigation.toMultisig(
+      multisigAddress().toString({ urlSafe: true, bounceable: true }),
+    );
+  };
   return (
     <Switch
       fallback={
@@ -236,13 +234,18 @@ export function MultisigOrderPage() {
                 </a>
               </div>
 
-              <button
-                id="order_approveButton"
-                class="btn-primary"
-                onClick={sendApprove}
-              >
-                Approve
-              </button>
+              <div class="flex items-center my-4">
+                <button
+                  id="order_approveButton"
+                  class={cn(
+                    "bg-[#0088cc] text-white mx-auto",
+                    emulationErrored() && "bg-red-500",
+                  )}
+                  onClick={sendApprove}
+                >
+                  Approve
+                </button>
+              </div>
 
               <div id="order_approveNote">
                 or just send 0.1 TON with "approve" text comment to order
@@ -253,11 +256,13 @@ export function MultisigOrderPage() {
 
               <div class={"flex flex-col gap-4"}>
                 <For each={emulatedOrder()?.transactions}>
-                  {(item) => <TxRow item={item} />}
+                  {(item) => <EmulatedTxRow item={item} />}
                 </For>
               </div>
             </div>
-            <button id="order_backButton">Back</button>
+            <button id="order_backButton" onClick={goToMultisigPage}>
+              Back
+            </button>
           </div>
         </div>
       }
@@ -282,45 +287,5 @@ export function MultisigOrderPage() {
         </div>
       </Match>
     </Switch>
-  );
-}
-
-function TxRow({ item }: { item: ParsedBlockchainTransaction }) {
-  const to = item?.inMessage?.info?.dest;
-  const from = item?.inMessage?.info?.src ?? "external";
-
-  let computeExit = 0;
-  if (item.description.type === "generic") {
-    if (item.description.computePhase.type === "vm") {
-      computeExit = item.description.computePhase.exitCode;
-    }
-  }
-  return (
-    <details class={"p-4 border rounded-xl"}>
-      <summary>
-        <div>Transaction</div>
-        <div>
-          From: <AddressLink address={from.toString()} />
-        </div>
-        <div>
-          To: <AddressLink address={to?.toString()} />
-        </div>
-        <div>
-          Amount:{" "}
-          {item.inMessage.info.type === "internal"
-            ? `${fromUnits(item.inMessage.info.value.coins.toString(), 9)} TON`
-            : ""}
-        </div>
-        <div>OutMessagesCount: {item.outMessagesCount}</div>
-        <div>Compute Exit: {computeExit}</div>
-      </summary>
-
-      <blockquote>
-        Parsed:
-        <div class={"text-sm overflow-x-auto"}>
-          <pre>{TonStringifier(item.parsed)}</pre>
-        </div>
-      </blockquote>
-    </details>
   );
 }
