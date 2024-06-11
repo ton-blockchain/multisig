@@ -16,4 +16,3 @@ export const AddressLink = (props: { address: string }) => {
     </a>
   );
 };
-
