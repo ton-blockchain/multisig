@@ -1,3 +1,4 @@
+import {AddressLink} from "@/components/AddressLink";
 import {OrderBalanceSheet} from "@/components/OrderBalanceSheet";
 import {isTestnet} from "@/storages/chain";
 import {setMultisigAddress} from "@/storages/multisig-address";
@@ -279,8 +280,8 @@ function TxRow({item}: { item: ParsedBlockchainTransaction }) {
     <details class={"p-4 border rounded-xl"}>
       <summary>
         <div>Transaction</div>
-        <div>From: {from.toString()}</div>
-        <div>To: {to?.toString()}</div>
+        <div>From: <AddressLink address={from.toString()} /></div>
+        <div>To: <AddressLink address={to?.toString()} /></div>
         <div>
           Amount:{" "}
           {item.inMessage.info.type === "internal"
