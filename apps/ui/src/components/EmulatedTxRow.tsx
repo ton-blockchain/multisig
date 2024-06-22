@@ -114,11 +114,16 @@ function AddressInfo({
 }) {
   return (
     <div class="bg-gray-100 p-2 rounded">
-      <div>
-        {label}: <AddressLink address={address?.toString()} account={account} />
+      <div class="flex flex-wrap items-center gap-1">
+        <span>{label}:</span>
+        <AddressLink
+          address={address?.toString()}
+          account={account}
+          className="break-all"
+        />
       </div>
       {account() && (
-        <div class="text-sm text-gray-600">
+        <div class="text-sm text-gray-600 mt-1">
           Interfaces: {account()?.interfaces?.join(", ") ?? "Unknown contract"}
         </div>
       )}

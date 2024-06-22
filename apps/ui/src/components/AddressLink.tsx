@@ -5,6 +5,7 @@ import { Account } from "tonapi-sdk-js";
 export const AddressLink = (props: {
   address: string;
   account?: Accessor<Account>;
+  className?: string;
 }) => {
   const friendlyAddress = createMemo(() =>
     Address.parse(props.address).toString({
@@ -18,6 +19,7 @@ export const AddressLink = (props: {
       href={`https://tonviewer.com/${friendlyAddress()}`}
       target="_blank"
       rel="noreferrer"
+      class={props.className}
     >
       {friendlyAddress()}
     </a>
