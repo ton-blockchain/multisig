@@ -6,6 +6,7 @@ import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import { tonapiClient } from "@/storages/ton-client";
 import { multisigAddress } from "@/storages/multisig-address";
 import { isTestnet } from "@/storages/chain";
+import { VerifiedIcon } from "./VerifiedIcon";
 
 type BalanceSheetRow = {
   assetAddress: string;
@@ -14,6 +15,7 @@ type BalanceSheetRow = {
   amount: bigint;
   isMe: boolean;
   decimals: number;
+  isVerified: boolean;
 };
 
 type AssetInfo = {
@@ -33,11 +35,14 @@ async function replaceJettonWallets({
   emulated,
 }: {
   emulated: EmulationResult;
-}): Promise<{ rows: TransposeBalanceSheetRow[]; keys: string[] }> {
+}): Promise<{
+  rows: TransposeBalanceSheetRow[];
+  keys: Record<string, { name: string; decimals: number; isVerified: boolean }>;
+}> {
   const tonsMapLocal = new Map();
   // console.log("transactions", transactions());
   if (!emulated?.transactions) {
-    return { rows: [], keys: [] };
+    return { rows: [], keys: {} };
   }
   for (const [i, tx] of emulated.transactions.entries()) {
     console.log("Processing tx", tx);
@@ -120,6 +125,7 @@ async function replaceJettonWallets({
               multisigAddress() &&
               Address.parse(toAddress).equals(multisigAddress()),
             decimals: 9,
+            isVerified: true,
           };
         }
 
@@ -154,6 +160,7 @@ async function replaceJettonWallets({
           toAddress: toAddress,
           amount: balance,
           decimals: Number(jetton.metadata.decimals),
+          isVerified: jetton.verification === "whitelist",
           isMe:
             multisigAddress() &&
             Address.parse(toAddress).equals(multisigAddress()),
@@ -169,7 +176,14 @@ async function replaceJettonWallets({
   }
   const rows = await Promise.all(promises);
 
-  const keys: Set<string> = new Set();
+  const keys: Record<
+    string,
+    {
+      name: string;
+      decimals: number;
+      isVerified: boolean;
+    }
+  > = {};
   const transposeRowsMap: Map<string, TransposeBalanceSheetRow> = new Map();
   await Promise.all(
     rows.map(async (row) => {
@@ -200,7 +214,11 @@ async function replaceJettonWallets({
       };
 
       // add asset to keys
-      keys.add(row.assetName);
+      keys[row.assetName] = {
+        name: row.assetName,
+        decimals: row.decimals,
+        isVerified: row.isVerified,
+      };
     }),
   );
 
@@ -214,7 +232,7 @@ async function replaceJettonWallets({
 
   return {
     rows: Array.from(transposeRowsMap.values()),
-    keys: Array.from(keys),
+    keys: keys,
   };
 }
 
@@ -223,89 +241,101 @@ export function OrderBalanceSheet({
 }: {
   emulated: Accessor<EmulationResult>;
 }) {
-  // const myAddress = multisigAddress();
-  // const [tonsMap, setTonsMap] = createSignal(new Map<string, bigint>());
-
   const [jettonComputedSheets] = createResource(
     emulated,
     () => replaceJettonWallets({ emulated: emulated() }),
     {},
   );
 
-  // console.log("tonsMap", tonsMap.entries());
-
   return (
-    <div class="my-4">
-      <h1 class={"text-2xl font-bold"}>Order Balance Sheet</h1>
-
-      <table class="table-fixed border-separate border-spacing-0 border border-slate-500">
-        <thead>
-          <tr>
-            <th class="border border-slate-600 px-2 text-left h-4">Address</th>
-            <For each={jettonComputedSheets()?.keys ?? []}>
-              {(key) => {
-                return (
-                  <th class="border border-slate-600 px-2 text-right h-4">
-                    {key}
+    <div class="my-8">
+      <h2 class="text-2xl font-bold mb-4">Order Balance Sheet</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">
+                Address
+              </th>
+              <For each={Object.keys(jettonComputedSheets()?.keys ?? {})}>
+                {(key) => (
+                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-600">
+                    <div class="flex items-center justify-end space-x-1">
+                      <span>{jettonComputedSheets()?.keys[key].name}</span>
+                      {jettonComputedSheets()?.keys[key].isVerified && (
+                        <VerifiedIcon className="w-4 h-4 text-transparent" />
+                      )}
+                    </div>
                   </th>
+                )}
+              </For>
+            </tr>
+          </thead>
+          <tbody>
+            <For each={jettonComputedSheets()?.rows ?? []}>
+              {({ isMe, address, account, balances }) => {
+                const keys = jettonComputedSheets().keys;
+                const friendlyAddress = Address.parse(address).toString({
+                  urlSafe: true,
+                  bounceable: !account.is_wallet,
+                });
+
+                return (
+                  <tr class="border-t border-gray-200 hover:bg-gray-50 transition-colors">
+                    <td class="px-4 py-3">
+                      <a
+                        href={`https://tonviewer.com/${friendlyAddress}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        {isMe ? (
+                          <span class="font-semibold">Multisig</span>
+                        ) : (
+                          <span class="font-mono text-sm">
+                            {friendlyAddress}
+                          </span>
+                        )}
+                      </a>
+                      <div class="text-xs text-gray-500 mt-1">
+                        {account.interfaces?.join(", ") ?? "Unknown contract"}
+                      </div>
+                    </td>
+                    <For each={Object.keys(keys)}>
+                      {(key) => {
+                        const assetInfo = balances[key];
+                        if (!assetInfo) {
+                          return (
+                            <td class="px-4 py-3 text-right text-gray-400">
+                              -
+                            </td>
+                          );
+                        }
+
+                        let amount = fromUnits(
+                          assetInfo.amount.toString(),
+                          assetInfo.decimals,
+                        );
+
+                        if (amount.indexOf(".") !== -1) {
+                          const [left, right] = amount.split(".");
+                          amount = `${left}.${right.padEnd(assetInfo.decimals, "0")}`;
+                        }
+
+                        return (
+                          <td class="px-4 py-3 text-right font-mono">
+                            {amount}
+                          </td>
+                        );
+                      }}
+                    </For>
+                  </tr>
                 );
               }}
             </For>
-          </tr>
-        </thead>
-        <tbody>
-          <For each={jettonComputedSheets()?.rows ?? []}>
-            {({ isMe, address, account, balances }) => {
-              const keys = jettonComputedSheets().keys;
-              const friendlyAddress = Address.parse(address).toString({
-                urlSafe: true,
-                bounceable: !account.is_wallet,
-              });
-
-              return (
-                <tr>
-                  <td class="border border-slate-600 px-2 text-left">
-                    <a
-                      href={`https://tonviewer.com/${friendlyAddress}`}
-                      target={"_blank"}
-                    >
-                      {isMe ? <b>Multisig</b> : <pre>{friendlyAddress}</pre>}
-                    </a>
-                    <div>
-                      {account.interfaces?.join(", ") ?? "unknown contract"}
-                    </div>
-                  </td>
-                  <For each={keys}>
-                    {(key) => {
-                      const assetInfo = balances[key];
-                      if (!assetInfo) {
-                        return <td class="border border-slate-600 px-2"></td>;
-                      }
-
-                      let amount = fromUnits(
-                        assetInfo.amount.toString(),
-                        assetInfo.decimals,
-                      );
-
-                      // add 0 after dot if needed
-                      if (amount.indexOf(".") !== -1) {
-                        const [left, right] = amount.split(".");
-                        amount = `${left}.${right.padEnd(assetInfo.decimals, "0")}`;
-                      }
-
-                      return (
-                        <td class="border border-slate-600 px-2 text-right">
-                          {amount}
-                        </td>
-                      );
-                    }}
-                  </For>
-                </tr>
-              );
-            }}
-          </For>
-        </tbody>
-      </table>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
