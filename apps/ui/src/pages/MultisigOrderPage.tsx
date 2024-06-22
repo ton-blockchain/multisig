@@ -40,6 +40,7 @@ import { isTestnet } from "@/storages/chain";
 import { OrderBalanceSheet } from "@/components/OrderBalanceSheet";
 import { useNavigation } from "@/navigation";
 import { EmulatedTxRow } from "@/components/EmulatedTxRow";
+import { EmulatedTxGraph } from "@/components/EmulatedTxGraph";
 
 async function fetchMultisig(
   {
@@ -253,6 +254,8 @@ export function MultisigOrderPage() {
               </div>
 
               <OrderBalanceSheet emulated={emulatedOrder} />
+
+              <EmulatedTxGraph emulated={emulatedOrder()} />
 
               <div class={"flex flex-col gap-4"}>
                 <For each={emulatedOrder()?.transactions}>

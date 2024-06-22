@@ -19,6 +19,8 @@
     "@tonconnect/ui": "2.0.2",
     "@truecarry/tlb-abi": "^0.1.1",
     "buffer": "^6.0.3",
+    "cytoscape": "^3.29.2",
+    "cytoscape-dagre": "^2.5.0",
     "jetton": "workspace:*",
     "multisig": "workspace:*",
     "solid-js": "^1.6.9",
@@ -26,6 +28,8 @@
     "utils": "workspace:*"
   },
   "devDependencies": {
+    "@types/cytoscape": "^3.21.4",
+    "@types/cytoscape-dagre": "^2.3.3",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.4",
