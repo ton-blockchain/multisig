@@ -23,6 +23,7 @@
     "cytoscape-dagre": "^2.5.0",
     "jetton": "workspace:*",
     "multisig": "workspace:*",
+    "qrcode-generator": "^1.4.4",
     "solid-js": "^1.6.9",
     "tonapi-sdk-js": "^1.0.10",
     "utils": "workspace:*"

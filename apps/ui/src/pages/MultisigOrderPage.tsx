@@ -31,6 +31,7 @@ import {
   IsTxGenericSuccess,
 } from "utils";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
+import qrcode from "qrcode-generator";
 import { tonConnectUI } from "@/storages/ton-connect";
 import {
   multisigAddress,
@@ -207,6 +208,28 @@ export function MultisigOrderPage() {
       multisigAddress().toString({ urlSafe: true, bounceable: true }),
     );
   };
+
+  const APPROVE_PAYLOAD = createMemo(() => {
+    if (!order()) {
+      return "";
+    }
+    return order().order.address.address.toString({
+      urlSafe: true,
+      bounceable: true,
+    });
+    // return `ton://transfer/${order().order.address.address.toString({
+    //   urlSafe: true,
+    //   bounceable: true,
+    // })}?amount=100000000&text=approve`;
+  });
+
+  const qrCodeSvg = createMemo(() => {
+    const qr = qrcode(0, "L");
+    qr.addData(APPROVE_PAYLOAD());
+    qr.make();
+    return qr.createSvgTag(4);
+  });
+
   return (
     <Switch
       fallback={
@@ -236,16 +259,22 @@ export function MultisigOrderPage() {
               </div>
 
               <div class="flex items-center my-4">
-                <button
-                  id="order_approveButton"
-                  class={cn(
-                    "bg-[#0088cc] text-white mx-auto",
-                    emulationErrored() && "bg-red-500",
-                  )}
-                  onClick={sendApprove}
-                >
-                  Approve
-                </button>
+                <div class="flex-1 flex justify-center items-center">
+                  <button
+                    id="order_approveButton"
+                    class={cn(
+                      "bg-[#0088cc] text-white",
+                      emulationErrored() && "bg-red-500",
+                    )}
+                    onClick={sendApprove}
+                  >
+                    Approve
+                  </button>
+                </div>
+                <div class="w-px bg-gray-300 h-20 mx-4"></div>
+                <div class="flex-1 flex justify-center items-center">
+                  <div innerHTML={qrCodeSvg()} />
+                </div>
               </div>
 
               <div id="order_approveNote">
