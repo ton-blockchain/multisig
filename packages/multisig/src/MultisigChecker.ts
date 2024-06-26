@@ -6,7 +6,6 @@ import {
   getAddressFormat,
   MyNetworkProvider,
   sendToIndex,
-  sendToTonApi,
 } from "utils";
 import { Op } from "./Constants";
 import { endParse, Multisig, parseMultisigData } from "./Multisig";
@@ -417,21 +416,21 @@ export const checkMultisig = async (
       lastOrders = Object.values(lastOrdersMap);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const findFailTx = (tonApiResult: any): boolean => {
-        if (tonApiResult.transaction) {
-          if (tonApiResult.transaction.success === false) {
-            if (tonApiResult.transaction.in_msg.decoded_op_name !== "excess") {
-              return true;
-            }
-          }
-        }
-        if (tonApiResult.children) {
-          for (const child of tonApiResult.children) {
-            if (findFailTx(child)) return true;
-          }
-        }
-        return false;
-      };
+      // const findFailTx = (tonApiResult: any): boolean => {
+      //   if (tonApiResult.transaction) {
+      //     if (tonApiResult.transaction.success === false) {
+      //       if (tonApiResult.transaction.in_msg.decoded_op_name !== "excess") {
+      //         return true;
+      //       }
+      //     }
+      //   }
+      //   if (tonApiResult.children) {
+      //     for (const child of tonApiResult.children) {
+      //       if (findFailTx(child)) return true;
+      //     }
+      //   }
+      //   return false;
+      // };
 
       for (const lastOrder of lastOrders) {
         if (lastOrder.type === "pending" || lastOrder.type === "executed") {
@@ -444,7 +443,7 @@ export const checkMultisig = async (
               false,
             );
             lastOrder.orderInfo = orderInfo;
-            
+
             if (lastOrder.type === "pending") {
               const isExpired =
                 new Date().getTime() > orderInfo.expiresAt.getTime();

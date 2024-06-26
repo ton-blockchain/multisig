@@ -2,22 +2,31 @@
 import { A, useParams } from "@solidjs/router";
 import { fromNano } from "@ton/core";
 import { LastOrder, MultisigInfo } from "multisig";
-import { For, JSXElement, Match, Show, Switch } from "solid-js";
+import {
+  For,
+  JSXElement,
+  Match,
+  Show,
+  Switch,
+  createResource,
+  createMemo,
+} from "solid-js";
 import { useNavigation } from "src/navigation";
-import { addressToString, equalsMsgAddresses } from "utils";
+import { addressToString, cn, equalsMsgAddresses } from "utils";
 import { userAddress } from "@/storages/ton-connect";
 import { setMultisigAddress } from "@/storages/multisig-address";
 import { isTestnet } from "@/storages/chain";
 import { YouBadge } from "@/components/YouBadge";
-import { createResource, createMemo } from "solid-js";
 
 async function fetchTonPrice(): Promise<number> {
   try {
-    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
+    const response = await fetch(
+      "https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd",
+    );
     const data = await response.json();
-    return data['the-open-network'].usd;
+    return data["the-open-network"].usd;
   } catch (error) {
-    console.error('Error fetching TON price:', error);
+    console.error("Error fetching TON price:", error);
     return 0;
   }
 }
@@ -110,7 +119,9 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
                           {signerAddress}
                         </a>
                       </div>
-                      {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
+                      {equalsMsgAddresses(signer.address, userAddress()) && (
+                        <YouBadge />
+                      )}
                     </div>
                   );
                 }}
@@ -141,7 +152,9 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
                           {proposerAddress}
                         </a>
                       </div>
-                      {equalsMsgAddresses(proposer.address, userAddress()) && <YouBadge />}
+                      {equalsMsgAddresses(proposer.address, userAddress()) && (
+                        <YouBadge />
+                      )}
                     </div>
                   );
                 }}
@@ -211,9 +224,15 @@ function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
             }
           }
 
+          const errorMessages = lastOrder?.orderInfo?.errors?.join(", ");
+
           return (
             <A
-              class="block bg-gray-50 p-3 rounded hover:bg-gray-100 transition-colors duration-200"
+              class={cn(
+                "block bg-gray-50 p-3 rounded hover:bg-gray-100 transition-colors duration-200",
+                lastOrder.orderInfo.isExecuted && "bg-green-50",
+                lastOrder.orderInfo.errors?.length > 0 && "bg-red-50",
+              )}
               order-id={lastOrder.order.id}
               order-address={addressToString(lastOrder.order.address)}
               href={`/multisig/${info.address.address.toString({
@@ -222,6 +241,12 @@ function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
               })}/${lastOrder.order.id.toString()}`}
             >
               <Switch>
+                <Match when={errorMessages}>
+                  <span class="font-medium text-red-500">
+                    Invalid Order #{lastOrder.order.id.toString(10)}
+                  </span>
+                  <span class="text-gray-600"> — {errorMessages}</span>
+                </Match>
                 <Match when={lastOrder?.errorMessage?.startsWith("Failed")}>
                   <span class="font-medium text-red-500">
                     Failed Order #{lastOrder.order.id.toString(10)}

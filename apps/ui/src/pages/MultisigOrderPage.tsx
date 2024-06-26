@@ -173,6 +173,14 @@ export function MultisigOrderPage() {
     fetchOrder,
   );
 
+  const orderErrors = createMemo(() => {
+    return order()?.orderInfo?.errors;
+  });
+
+  const isOrderExecutedOrInvalid = createMemo(() => {
+    return order()?.orderInfo.isExecuted || orderErrors()?.length > 0;
+  });
+
   createEffect(() => {
     if (loading() && multisigInfo.error) {
       setError(multisigInfo.error);
@@ -371,38 +379,54 @@ export function MultisigOrderPage() {
                 </div>
               </div>
             </div>
-            <div class="flex items-center my-4">
-              <div class="flex-1 flex justify-center items-center">
-                <button
-                  id="order_approveButton"
-                  class={cn(
-                    "bg-[#0088cc] text-white",
-                    emulationErrored() && "bg-red-500",
-                  )}
-                  onClick={sendApprove}
-                >
-                  Approve
-                </button>
+
+            {!isOrderExecutedOrInvalid() && (
+              <>
+                <div class="flex items-center my-4">
+                  <div class="flex-1 flex justify-center items-center">
+                    <button
+                      id="order_approveButton"
+                      class={cn(
+                        "bg-[#0088cc] text-white",
+                        emulationErrored() && "bg-red-500",
+                        isOrderExecutedOrInvalid() &&
+                          "opacity-50 cursor-not-allowed",
+                      )}
+                      onClick={sendApprove}
+                      disabled={isOrderExecutedOrInvalid()}
+                    >
+                      Approve
+                    </button>
+                  </div>
+                  <div class="w-px bg-gray-300 h-20 mx-4"></div>
+                  <div class="flex-1 flex justify-center items-center">
+                    <div innerHTML={qrCodeSvg()} />
+                  </div>
+                </div>
+                <div id="order_approveNote">
+                  {isOrderExecutedOrInvalid()
+                    ? "This order cannot be approved."
+                    : 'or just send 0.1 TON with "approve" text comment to order address.'}
+                </div>
+              </>
+            )}
+
+            <Show when={!isOrderExecutedOrInvalid()}>
+              <OrderBalanceSheet emulated={emulatedOrder} />
+              <EmulatedTxGraph emulated={emulatedOrder()} />
+              <div class={"flex flex-col gap-4"}>
+                <For each={emulatedOrder()?.transactions}>
+                  {(item) => <EmulatedTxRow item={item} />}
+                </For>
               </div>
-              <div class="w-px bg-gray-300 h-20 mx-4"></div>
-              <div class="flex-1 flex justify-center items-center">
-                <div innerHTML={qrCodeSvg()} />
+            </Show>
+
+            <Show when={orderErrors()?.length > 0}>
+              <div class="text-red-500">
+                Order is invalid: {orderErrors().join(", ")}
               </div>
-            </div>
+            </Show>
 
-            <div id="order_approveNote">
-              or just send 0.1 TON with "approve" text comment to order address.
-            </div>
-
-            <OrderBalanceSheet emulated={emulatedOrder} />
-
-            <EmulatedTxGraph emulated={emulatedOrder()} />
-
-            <div class={"flex flex-col gap-4"}>
-              <For each={emulatedOrder()?.transactions}>
-                {(item) => <EmulatedTxRow item={item} />}
-              </For>
-            </div>
             <button id="order_backButton" onClick={goToMultisigPage}>
               Back
             </button>
