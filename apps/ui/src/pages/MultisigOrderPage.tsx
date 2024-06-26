@@ -35,7 +35,7 @@ import {
 } from "utils";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import qrcode from "qrcode-generator";
-import { tonConnectUI } from "@/storages/ton-connect";
+import { tonConnectUI, userAddress } from "@/storages/ton-connect";
 import {
   multisigAddress,
   setMultisigAddress,
@@ -45,7 +45,6 @@ import { OrderBalanceSheet } from "@/components/OrderBalanceSheet";
 import { useNavigation } from "@/navigation";
 import { EmulatedTxRow } from "@/components/EmulatedTxRow";
 import { EmulatedTxGraph } from "@/components/EmulatedTxGraph";
-import { userAddress } from "@/storages/ton-connect";
 import { YouBadge } from "@/components/YouBadge";
 
 async function fetchMultisig(
@@ -99,13 +98,15 @@ async function fetchOrder({
     return undefined;
   }
 
-  let blockSeqno = undefined;
+  let blockSeqno;
   if (orderInfo.isExecuted) {
-    const orderId = order.lastOrders.find(o => o?.order?.id === orderInfo.orderId);
+    const orderId = order.lastOrders.find(
+      (o) => o?.order?.id === orderInfo.orderId,
+    );
     if (orderId) {
       const client = await getTonClient4(isTestnet());
       const block = await client.getBlockByUtime(orderId.utime);
-      blockSeqno = block.shards.find(p => p.workchain === -1).seqno;
+      blockSeqno = block.shards.find((p) => p.workchain === -1).seqno;
     }
   }
 
@@ -147,12 +148,12 @@ export function MultisigOrderPage() {
 
   const order = createMemo(() => {
     console.log(
-      multisigInfo?.latest, 
-      params.orderId, 
+      multisigInfo?.latest,
+      params.orderId,
       multisigInfo?.latest &&
-      multisigInfo.latest.order?.lastOrders.find(
-        (o) => o?.order?.id === BigInt(params.orderId),
-      )
+        multisigInfo.latest.order?.lastOrders.find(
+          (o) => o?.order?.id === BigInt(params.orderId),
+        ),
     );
 
     return (
@@ -259,13 +260,24 @@ export function MultisigOrderPage() {
       fallback={
         <div id="multisigScreen" class="screen">
           <div class="panel">
-            <button 
-              id="order_backButton_top" 
-              onClick={goToMultisigPage} 
+            <button
+              id="order_backButton_top"
+              onClick={goToMultisigPage}
               class="mb-6 flex items-center text-[#0088cc] hover:text-[#006699] transition-colors duration-200"
             >
-              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              <svg
+                class="w-4 h-4 mr-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M15 19l-7-7 7-7"
+                ></path>
               </svg>
               Back to Multisig
             </button>
@@ -276,15 +288,17 @@ export function MultisigOrderPage() {
                   #{order().order.id.toString()}
                 </div>
               </div>
-              
+
               <div class="mb-4">
                 <div class="text-sm text-gray-500 mb-1">Order Address:</div>
                 <div id="order_address" class="text-lg font-medium break-all">
                   <a
-                    href={`https://tonviewer.com/${order().order.address.address.toString({
-                      urlSafe: true,
-                      bounceable: true,
-                    })}`}
+                    href={`https://tonviewer.com/${order().order.address.address.toString(
+                      {
+                        urlSafe: true,
+                        bounceable: true,
+                      },
+                    )}`}
                     target="_blank"
                     class="text-blue-500 hover:text-blue-700 transition-colors duration-200"
                   >
@@ -302,19 +316,38 @@ export function MultisigOrderPage() {
                   <Show when={order() && order().orderInfo}>
                     <For each={order().orderInfo.signers}>
                       {(signer, index) => {
-                        const signerAddress = signer.address.toString({urlSafe: true, bounceable: false});
+                        const signerAddress = signer.address.toString({
+                          urlSafe: true,
+                          bounceable: false,
+                        });
                         return (
                           <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
                             <div class="flex items-center">
-                              <span class="text-gray-600 mr-2">#{index() + 1}</span>
-                              <a href={`https://tonviewer.com/${signerAddress}`} target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 transition-colors duration-200">{signerAddress}</a>
-                              {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
+                              <span class="text-gray-600 mr-2">
+                                #{index() + 1}
+                              </span>
+                              <a
+                                href={`https://tonviewer.com/${signerAddress}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-blue-500 hover:text-blue-700 transition-colors duration-200"
+                              >
+                                {signerAddress}
+                              </a>
+                              {equalsMsgAddresses(
+                                signer.address,
+                                userAddress(),
+                              ) && <YouBadge />}
                             </div>
                             <div>
-                              {order().orderInfo.approvalsMask & (1 << index()) 
-                                ? <span class="text-green-500">✅ Approved</span> 
-                                : <span class="text-red-500">❌ Not approved</span>
-                              }
+                              {order().orderInfo.approvalsMask &
+                              (1 << index()) ? (
+                                <span class="text-green-500">✅ Approved</span>
+                              ) : (
+                                <span class="text-red-500">
+                                  ❌ Not approved
+                                </span>
+                              )}
                             </div>
                           </div>
                         );
@@ -327,11 +360,12 @@ export function MultisigOrderPage() {
               <div>
                 <div class="text-sm text-gray-500 mb-1">Approvals:</div>
                 <div id="order_approvals" class="text-lg font-medium">
-                  <Show 
+                  <Show
                     when={order() && order()?.orderInfo}
                     fallback="Loading..."
                   >
-                    {order().orderInfo.approvalsNum} / {order().orderInfo.threshold}
+                    {order().orderInfo.approvalsNum} /{" "}
+                    {order().orderInfo.threshold}
                     {order().orderInfo.isExecuted && " (Executed)"}
                   </Show>
                 </div>
@@ -357,8 +391,7 @@ export function MultisigOrderPage() {
             </div>
 
             <div id="order_approveNote">
-              or just send 0.1 TON with "approve" text comment to order
-              address.
+              or just send 0.1 TON with "approve" text comment to order address.
             </div>
 
             <OrderBalanceSheet emulated={emulatedOrder} />
@@ -399,6 +432,3 @@ export function MultisigOrderPage() {
     </Switch>
   );
 }
-
-
-

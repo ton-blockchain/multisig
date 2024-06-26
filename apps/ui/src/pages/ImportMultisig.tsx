@@ -17,7 +17,7 @@ export const ImportMultisig: Component = () => {
   const onInput = (e: Event) => {
     const value = (e.target as HTMLInputElement).value;
     setMultisig(value);
-    
+
     // Проверяем, является ли введенное значение валидным адресом
     try {
       Address.parse(value);
@@ -29,7 +29,7 @@ export const ImportMultisig: Component = () => {
   };
 
   const handleKeyPress = (e: KeyboardEvent) => {
-    if ((e.key === 'Enter' && (e.metaKey || e.ctrlKey)) || e.key === 'Enter') {
+    if ((e.key === "Enter" && (e.metaKey || e.ctrlKey)) || e.key === "Enter") {
       e.preventDefault();
       onImportMultisig();
     }
