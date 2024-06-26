@@ -6,6 +6,7 @@ import { addressToString } from "utils";
 import { fromNano } from "@ton/core";
 import { isTestnet } from "@/storages/chain";
 import { EmulatedTxRow } from "@/components/EmulatedTxRow";
+import { Portal } from "solid-js/web";
 
 cytoscape.use(dagre);
 
@@ -16,6 +17,7 @@ interface EmulatedTxGraphProps {
 export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
   let containerRef: HTMLDivElement | undefined;
   const [selectedNode, setSelectedNode] = createSignal<any>(null);
+  const [showPopup, setShowPopup] = createSignal(false);
 
   const initializeCytoscape = () => {
     if (!containerRef || !props.emulated?.transactions) return;
@@ -152,27 +154,8 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
     cy.on("tap", "node", (evt: { target: any }) => {
       const node = evt.target;
       setSelectedNode(node.data());
+      setShowPopup(true);
     });
-
-    // Add zoom controls
-    const zoomIn = () => cy.zoom(cy.zoom() * 1.2);
-    const zoomOut = () => cy.zoom(cy.zoom() / 1.2);
-    const resetZoom = () => cy.fit();
-
-    const zoomInBtn = document.createElement("button");
-    zoomInBtn.innerHTML = "+";
-    zoomInBtn.onclick = zoomIn;
-    containerRef?.appendChild(zoomInBtn);
-
-    const zoomOutBtn = document.createElement("button");
-    zoomOutBtn.innerHTML = "-";
-    zoomOutBtn.onclick = zoomOut;
-    containerRef?.appendChild(zoomOutBtn);
-
-    const resetBtn = document.createElement("button");
-    resetBtn.innerHTML = "Reset";
-    resetBtn.onclick = resetZoom;
-    containerRef?.appendChild(resetBtn);
 
     onCleanup(() => {
       cy.destroy();
@@ -193,16 +176,26 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
         style={{ width: "100%", height: "500px", position: "relative" }}
         class="bg-gray-100 rounded-lg shadow-inner"
       ></div>
-      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <h3 class="text-lg font-semibold mb-4">Transaction Details</h3>
-        <Show when={selectedNode()} fallback={<p>Select a transaction to view details</p>}>
-          {(node) => {
-            const selectedTx = props.emulated.transactions.find(tx => tx.lt.toString() === node().id);
-            return selectedTx ? <EmulatedTxRow item={selectedTx} /> : null;
-          }}
-        </Show>
-      </div>
+      <Show when={showPopup() && selectedNode()}>
+        <Portal>
+          <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+            <div class="bg-white rounded-lg shadow-sm p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Transaction Details</h3>
+                <button onClick={() => setShowPopup(false)} class="text-gray-500 hover:text-gray-700">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              {(() => {
+                const selectedTx = props.emulated.transactions.find(tx => tx.lt.toString() === selectedNode().id);
+                return selectedTx ? <EmulatedTxRow item={selectedTx} /> : null;
+              })()}
+            </div>
+          </div>
+        </Portal>
+      </Show>
     </div>
   );
 }
-
