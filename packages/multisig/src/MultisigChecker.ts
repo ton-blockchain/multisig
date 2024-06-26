@@ -434,24 +434,7 @@ export const checkMultisig = async (
       };
 
       for (const lastOrder of lastOrders) {
-        if (lastOrder.type === "executed") {
-          const transactionHashHex = Buffer.from(
-            lastOrder.transactionHash,
-            "base64",
-          ).toString("hex");
-          const sendResult = await sendToTonApi(
-            `traces/${transactionHashHex}`,
-            {},
-            isTestnet,
-          );
-          if (findFailTx(sendResult)) {
-            lastOrder.errorMessage = "Failed";
-          }
-        }
-      }
-
-      for (const lastOrder of lastOrders) {
-        if (lastOrder.type === "pending") {
+        if (lastOrder.type === "pending" || lastOrder.type === "executed") {
           try {
             const orderInfo = await checkMultisigOrder(
               lastOrder.order.address,
@@ -461,13 +444,18 @@ export const checkMultisig = async (
               false,
             );
             lastOrder.orderInfo = orderInfo;
-            const isExpired =
-              new Date().getTime() > orderInfo.expiresAt.getTime();
-            if (isExpired) {
-              lastOrder.type = "executed";
+            
+            if (lastOrder.type === "pending") {
+              const isExpired =
+                new Date().getTime() > orderInfo.expiresAt.getTime();
+              if (isExpired) {
+                lastOrder.type = "executed";
+              }
             }
           } catch (e) {
-            lastOrder.type = "executed";
+            if (lastOrder.type === "pending") {
+              lastOrder.type = "executed";
+            }
             lastOrder.errorMessage = e.message;
           }
         }

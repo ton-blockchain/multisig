@@ -135,6 +135,15 @@ export function MultisigOrderPage() {
   );
 
   const order = createMemo(() => {
+    console.log(
+      multisigInfo?.latest, 
+      params.orderId, 
+      multisigInfo?.latest &&
+      multisigInfo.latest.order?.lastOrders.find(
+        (o) => o?.order?.id === BigInt(params.orderId),
+      )
+    );
+
     return (
       multisigInfo?.latest &&
       multisigInfo.latest.order?.lastOrders.find(
@@ -308,10 +317,11 @@ export function MultisigOrderPage() {
                 <div class="text-sm text-gray-500 mb-1">Approvals:</div>
                 <div id="order_approvals" class="text-lg font-medium">
                   <Show 
-                    when={order() && order().orderInfo}
-                    fallback="N/A (Executed Order)"
+                    when={order() && order()?.orderInfo}
+                    fallback="Loading..."
                   >
                     {order().orderInfo.approvalsNum} / {order().orderInfo.threshold}
+                    {order().orderInfo.isExecuted && " (Executed)"}
                   </Show>
                 </div>
               </div>
@@ -378,3 +388,6 @@ export function MultisigOrderPage() {
     </Switch>
   );
 }
+
+
+
