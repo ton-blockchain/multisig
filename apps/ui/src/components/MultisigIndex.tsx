@@ -9,6 +9,18 @@ import { userAddress } from "@/storages/ton-connect";
 import { setMultisigAddress } from "@/storages/multisig-address";
 import { isTestnet } from "@/storages/chain";
 import { YouBadge } from "@/components/YouBadge";
+import { createResource, createMemo } from "solid-js";
+
+async function fetchTonPrice(): Promise<number> {
+  try {
+    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=the-open-network&vs_currencies=usd');
+    const data = await response.json();
+    return data['the-open-network'].usd;
+  } catch (error) {
+    console.error('Error fetching TON price:', error);
+    return 0;
+  }
+}
 
 export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
   const navigation = useNavigation();
@@ -22,6 +34,13 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
   const createNewOrder = () => {
     alert("Use TonDevWallet to create a new order");
   };
+
+  const [tonPrice] = createResource(fetchTonPrice);
+
+  const tonBalanceUsd = createMemo(() => {
+    if (!tonPrice()) return 0;
+    return parseFloat(fromNano(info.tonBalance)) * tonPrice();
+  });
 
   return (
     <div id="multisigScreen" class="screen">
@@ -53,6 +72,11 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
             <div class="text-sm text-gray-500 mb-1">TON Balance:</div>
             <div id="multisig_tonBalance" class="text-lg font-medium">
               {fromNano(info.tonBalance)} TON
+              <Show when={tonPrice() > 0}>
+                <span class="text-sm text-gray-500 ml-2">
+                  (${tonBalanceUsd().toFixed(2)} USD)
+                </span>
+              </Show>
             </div>
           </div>
 
