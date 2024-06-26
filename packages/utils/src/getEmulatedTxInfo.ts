@@ -24,12 +24,15 @@ export async function getEmulatedTxInfo(
   cell: Cell | undefined,
   ignoreChecksig: boolean = false,
   isTestnet: boolean = false,
+  blockSeqno: number | undefined = undefined,
 ): Promise<EmulationResult> {
   const blockchain = await Blockchain.create({
     storage: new RemoteBlockchainStorage(
       wrapTonClient4ForRemote(getTonClient4(isTestnet)),
+      blockSeqno,
     ),
   });
+
   // Better to fetch only needed libs, but for now we just add all known libs
   blockchain.libs = megaLibsCell;
 
@@ -49,6 +52,7 @@ export async function getEmulatedTxInfo(
   for await (const tx of iter) {
     transactions.push(tx);
   }
+  debugger;
 
   for (let i = 0; i < transactions.length; i++) {
     const tx = transactions[i];

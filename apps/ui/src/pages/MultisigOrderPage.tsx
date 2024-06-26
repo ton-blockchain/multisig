@@ -31,6 +31,7 @@ import {
   getEmulatedTxInfo,
   IsTxGenericSuccess,
   equalsMsgAddresses,
+  getTonClient4,
 } from "utils";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import qrcode from "qrcode-generator";
@@ -98,6 +99,16 @@ async function fetchOrder({
     return undefined;
   }
 
+  let blockSeqno = undefined;
+  if (orderInfo.isExecuted) {
+    const orderId = order.lastOrders.find(o => o?.order?.id === orderInfo.orderId);
+    if (orderId) {
+      const client = await getTonClient4(isTestnet());
+      const block = await client.getBlockByUtime(orderId.utime);
+      blockSeqno = block.shards.find(p => p.workchain === -1).seqno;
+    }
+  }
+
   const balance = BigInt(orderInfo.tonBalance);
   const msg = internal({
     to: Address.parse(multisigAddress),
@@ -116,7 +127,7 @@ async function fetchOrder({
 
   const msgCell = beginCell().store(storeMessageRelaxed(msg)).endCell();
 
-  const data = await getEmulatedTxInfo(msgCell, true, isTestnet());
+  const data = await getEmulatedTxInfo(msgCell, true, isTestnet(), blockSeqno);
 
   return data;
 }
