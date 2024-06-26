@@ -238,83 +238,108 @@ export function MultisigOrderPage() {
       fallback={
         <div id="multisigScreen" class="screen">
           <div class="panel">
-            <div>
-              <div class="label">Order ID:</div>
-              <div id="order_id" class="value">
-                #{order().order.id.toString()}
+            <button 
+              id="order_backButton_top" 
+              onClick={goToMultisigPage} 
+              class="mb-6 flex items-center text-[#0088cc] hover:text-[#006699] transition-colors duration-200"
+            >
+              <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+              </svg>
+              Back to Multisig
+            </button>
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+              <div class="mb-4">
+                <div class="text-sm text-gray-500 mb-1">Order ID:</div>
+                <div id="order_id" class="text-lg font-medium">
+                  #{order().order.id.toString()}
+                </div>
               </div>
-              <div class="label">Order Address:</div>
-              <div id="order_address" class="value">
-                <a
-                  href={`https://tonviewer.com/${order().order.address.address.toString(
-                    {
+              
+              <div class="mb-4">
+                <div class="text-sm text-gray-500 mb-1">Order Address:</div>
+                <div id="order_address" class="text-lg font-medium break-all">
+                  <a
+                    href={`https://tonviewer.com/${order().order.address.address.toString({
                       urlSafe: true,
                       bounceable: true,
-                    },
-                  )}`}
-                  target="_blank"
-                >
-                  {order().order.address.address.toString({
-                    urlSafe: true,
-                    bounceable: true,
-                  })}
-                </a>
-              </div>
-
-              <div class="label">Signers:</div>
-              <div id="order_signersList">
-                <For each={order().orderInfo.signers}>
-                  {(signer, index) => {
-                    const signerAddress = signer.address.toString({urlSafe: true, bounceable: false});
-                    return (
-                      <div>
-                        #{index() + 1} - <a href={`https://tonviewer.com/${signerAddress}`} target="_blank" rel="noopener noreferrer">{signerAddress}</a>
-                        {order().orderInfo.approvalsMask & (1 << index()) ? " ✅" : " ❌"}
-                        {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
-                      </div>
-                    );
-                  }}
-                </For>
-              </div>
-
-              <div class="label">Approvals:</div>
-              <div id="order_approvals" class="value">
-                {order().orderInfo.approvalsNum} / {order().orderInfo.threshold}
-              </div>
-
-              <div class="flex items-center my-4">
-                <div class="flex-1 flex justify-center items-center">
-                  <button
-                    id="order_approveButton"
-                    class={cn(
-                      "bg-[#0088cc] text-white",
-                      emulationErrored() && "bg-red-500",
-                    )}
-                    onClick={sendApprove}
+                    })}`}
+                    target="_blank"
+                    class="text-blue-500 hover:text-blue-700 transition-colors duration-200"
                   >
-                    Approve
-                  </button>
+                    {order().order.address.address.toString({
+                      urlSafe: true,
+                      bounceable: true,
+                    })}
+                  </a>
                 </div>
-                <div class="w-px bg-gray-300 h-20 mx-4"></div>
-                <div class="flex-1 flex justify-center items-center">
-                  <div innerHTML={qrCodeSvg()} />
+              </div>
+
+              <div class="mb-4">
+                <div class="text-sm text-gray-500 mb-1">Signers:</div>
+                <div id="order_signersList" class="space-y-2">
+                  <For each={order().orderInfo.signers}>
+                    {(signer, index) => {
+                      const signerAddress = signer.address.toString({urlSafe: true, bounceable: false});
+                      return (
+                        <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
+                          <div class="flex items-center">
+                            <span class="text-gray-600 mr-2">#{index() + 1}</span>
+                            <a href={`https://tonviewer.com/${signerAddress}`} target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 transition-colors duration-200">{signerAddress}</a>
+                            {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
+                          </div>
+                          <div>
+                            {order().orderInfo.approvalsMask & (1 << index()) 
+                              ? <span class="text-green-500">✅ Approved</span> 
+                              : <span class="text-red-500">❌ Not approved</span>
+                            }
+                          </div>
+                        </div>
+                      );
+                    }}
+                  </For>
                 </div>
               </div>
 
-              <div id="order_approveNote">
-                or just send 0.1 TON with "approve" text comment to order
-                address.
+              <div>
+                <div class="text-sm text-gray-500 mb-1">Approvals:</div>
+                <div id="order_approvals" class="text-lg font-medium">
+                  {order().orderInfo.approvalsNum} / {order().orderInfo.threshold}
+                </div>
               </div>
-
-              <OrderBalanceSheet emulated={emulatedOrder} />
-
-              <EmulatedTxGraph emulated={emulatedOrder()} />
-
-              <div class={"flex flex-col gap-4"}>
-                <For each={emulatedOrder()?.transactions}>
-                  {(item) => <EmulatedTxRow item={item} />}
-                </For>
+            </div>
+            <div class="flex items-center my-4">
+              <div class="flex-1 flex justify-center items-center">
+                <button
+                  id="order_approveButton"
+                  class={cn(
+                    "bg-[#0088cc] text-white",
+                    emulationErrored() && "bg-red-500",
+                  )}
+                  onClick={sendApprove}
+                >
+                  Approve
+                </button>
               </div>
+              <div class="w-px bg-gray-300 h-20 mx-4"></div>
+              <div class="flex-1 flex justify-center items-center">
+                <div innerHTML={qrCodeSvg()} />
+              </div>
+            </div>
+
+            <div id="order_approveNote">
+              or just send 0.1 TON with "approve" text comment to order
+              address.
+            </div>
+
+            <OrderBalanceSheet emulated={emulatedOrder} />
+
+            <EmulatedTxGraph emulated={emulatedOrder()} />
+
+            <div class={"flex flex-col gap-4"}>
+              <For each={emulatedOrder()?.transactions}>
+                {(item) => <EmulatedTxRow item={item} />}
+              </For>
             </div>
             <button id="order_backButton" onClick={goToMultisigPage}>
               Back
@@ -345,3 +370,5 @@ export function MultisigOrderPage() {
     </Switch>
   );
 }
+
+

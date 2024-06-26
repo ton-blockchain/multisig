@@ -25,20 +25,23 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
 
   return (
     <div id="multisigScreen" class="screen">
-      <div class="panel">
-        <div>
-          <div class="label">Multisig Address:</div>
-
-          <div id="mulisig_address" class="value">
+      <div class="panel bg-white rounded-lg shadow-sm p-6">
+        <div class="mb-6">
+          <div class="text-sm text-gray-500 mb-1">Multisig Address:</div>
+          <div id="mulisig_address" class="text-lg font-medium break-all">
             <a
               href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${params.address}`}
-              target={"_blank"}
+              target="_blank"
+              class="text-blue-500 hover:text-blue-700 transition-colors duration-200"
             >
               {params.address}
             </a>
           </div>
-
-          <button id="multisig_logoutButton" onClick={onSwitchMultisig}>
+          <button
+            id="multisig_logoutButton"
+            onClick={onSwitchMultisig}
+            class="mt-2 text-[#0088cc] hover:text-[#006699] transition-colors duration-200"
+          >
             Switch to another multisig
           </button>
         </div>
@@ -46,21 +49,23 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
         <div id="multisig_error"></div>
 
         <div id="multisig_content">
-          <div>
-            <div class="label">TON Balance:</div>
-            <div id="multisig_tonBalance" class="value">
-              {fromNano(info.tonBalance)}
+          <div class="mb-6">
+            <div class="text-sm text-gray-500 mb-1">TON Balance:</div>
+            <div id="multisig_tonBalance" class="text-lg font-medium">
+              {fromNano(info.tonBalance)} TON
             </div>
           </div>
 
-          <div>
-            <div class="label">Threshold:</div>
-            <div id="multisig_threshold" class="value">
-              {info.threshold}
+          <div class="mb-6">
+            <div class="text-sm text-gray-500 mb-1">Threshold:</div>
+            <div id="multisig_threshold" class="text-lg font-medium">
+              {info.threshold} / {info.signers.length}
             </div>
+          </div>
 
-            <div class="label">Signers:</div>
-            <div id="multisig_signersList">
+          <div class="mb-6">
+            <div class="text-sm text-gray-500 mb-1">Signers:</div>
+            <div id="multisig_signersList" class="space-y-2">
               <For each={info.signers}>
                 {(signer, i) => {
                   const signerAddress = signer.address.toString({
@@ -70,23 +75,28 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
                   });
 
                   return (
-                    <div>
-                      #{i() + 1} —{" "}
-                      <a
-                        href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${signerAddress}`}
-                        target="_blank"
-                      >
-                        {signerAddress}
-                      </a>
+                    <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <div class="flex items-center">
+                        <span class="text-gray-600 mr-2">#{i() + 1}</span>
+                        <a
+                          href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${signerAddress}`}
+                          target="_blank"
+                          class="text-blue-500 hover:text-blue-700 transition-colors duration-200"
+                        >
+                          {signerAddress}
+                        </a>
+                      </div>
                       {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
                     </div>
                   );
                 }}
               </For>
             </div>
+          </div>
 
-            <div class="label">Proposers:</div>
-            <div id="multisig_proposersList">
+          <div class="mb-6">
+            <div class="text-sm text-gray-500 mb-1">Proposers:</div>
+            <div id="multisig_proposersList" class="space-y-2">
               <For each={info.proposers}>
                 {(proposer, i) => {
                   const proposerAddress = proposer.address.toString({
@@ -96,40 +106,44 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
                   });
 
                   return (
-                    <div>
-                      #{i() + 1} —{" "}
-                      <a
-                        href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${proposerAddress}`}
-                        target="_blank"
-                      >
-                        {proposerAddress}
-                      </a>
-                      {equalsMsgAddresses(proposer.address, userAddress()) ? (
-                        <div class="badge">It's you</div>
-                      ) : (
-                        ""
-                      )}
+                    <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
+                      <div class="flex items-center">
+                        <span class="text-gray-600 mr-2">#{i() + 1}</span>
+                        <a
+                          href={`https://${isTestnet() ? "testnet." : ""}tonviewer.com/${proposerAddress}`}
+                          target="_blank"
+                          class="text-blue-500 hover:text-blue-700 transition-colors duration-200"
+                        >
+                          {proposerAddress}
+                        </a>
+                      </div>
+                      {equalsMsgAddresses(proposer.address, userAddress()) && <YouBadge />}
                     </div>
                   );
                 }}
               </For>
             </div>
+          </div>
 
-            <div class="label">Order ID:</div>
-            <div id="multisig_orderId" class="value">
+          <div class="mb-6">
+            <div class="text-sm text-gray-500 mb-1">Order ID:</div>
+            <div id="multisig_orderId" class="text-lg font-medium">
               {info.allowArbitraryOrderSeqno
                 ? "Arbitrary"
                 : info.nextOderSeqno.toString()}
             </div>
-
-            <button id="multisig_updateButton">
-              Change multisig configuration
-            </button>
           </div>
 
           <button
+            id="multisig_updateButton"
+            class="mb-6 text-[#0088cc] hover:text-[#006699] transition-colors duration-200"
+          >
+            Change multisig configuration
+          </button>
+
+          <button
             id="multisig_createNewOrderButton"
-            class="btn-primary"
+            class="w-full bg-[#0088cc] text-white py-2 px-4 rounded-full hover:bg-[#006699] transition-colors duration-200"
             onClick={createNewOrder}
           >
             Create new order
@@ -144,7 +158,7 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
 
 function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
   return (
-    <div id="mainScreen_ordersList">
+    <div id="mainScreen_ordersList" class="mt-6 space-y-2">
       <For each={info.lastOrders}>
         {(lastOrder) => {
           if (lastOrder?.errorMessage?.startsWith("Contract not active")) {
@@ -175,7 +189,7 @@ function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
 
           return (
             <A
-              class="multisig_lastOrder"
+              class="block bg-gray-50 p-3 rounded hover:bg-gray-100 transition-colors duration-200"
               order-id={lastOrder.order.id}
               order-address={addressToString(lastOrder.order.address)}
               href={`/multisig/${info.address.address.toString({
@@ -185,26 +199,24 @@ function OrdersList({ info }: { info: MultisigInfo }): JSXElement {
             >
               <Switch>
                 <Match when={lastOrder?.errorMessage?.startsWith("Failed")}>
-                  <span class="orderListItem_title">
+                  <span class="font-medium text-red-500">
                     Failed Order #{lastOrder.order.id.toString(10)}
-                  </span>{" "}
-                  — Execution error
+                  </span>
+                  <span class="text-gray-600"> — Execution error</span>
                 </Match>
                 <Match when={lastOrder?.errorMessage}>
-                  <span class="orderListItem_title">
+                  <span class="font-medium text-red-500">
                     Invalid Order #{lastOrder.order.id.toString(10)}
-                  </span>{" "}
-                  — {lastOrder.errorMessage}
+                  </span>
+                  <span class="text-gray-600"> — {lastOrder.errorMessage}</span>
+                </Match>
+                <Match when={!lastOrder?.errorMessage}>
+                  <span class="font-medium">
+                    {actionText} #{lastOrder.order.id.toString()}
+                  </span>
+                  <span class="text-gray-600">{signerText}</span>
                 </Match>
               </Switch>
-
-              <Show when={!lastOrder?.errorMessage}>
-                <span class="orderListItem_title">
-                  {actionText} #{lastOrder.order.id.toString()}
-                  {signerText || <></>}
-                  {/* {userAddress?.toString()} */}
-                </span>
-              </Show>
             </A>
           );
         }}
