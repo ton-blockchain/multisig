@@ -29,6 +29,7 @@ import {
   cn,
   getEmulatedTxInfo,
   IsTxGenericSuccess,
+  equalsMsgAddresses,
 } from "utils";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
 import qrcode from "qrcode-generator";
@@ -42,6 +43,8 @@ import { OrderBalanceSheet } from "@/components/OrderBalanceSheet";
 import { useNavigation } from "@/navigation";
 import { EmulatedTxRow } from "@/components/EmulatedTxRow";
 import { EmulatedTxGraph } from "@/components/EmulatedTxGraph";
+import { userAddress } from "@/storages/ton-connect";
+import { YouBadge } from "@/components/YouBadge";
 
 async function fetchMultisig(
   {
@@ -256,6 +259,27 @@ export function MultisigOrderPage() {
                     bounceable: true,
                   })}
                 </a>
+              </div>
+
+              <div class="label">Signers:</div>
+              <div id="order_signersList">
+                <For each={order().orderInfo.signers}>
+                  {(signer, index) => {
+                    const signerAddress = signer.address.toString({urlSafe: true, bounceable: false});
+                    return (
+                      <div>
+                        #{index() + 1} - <a href={`https://tonviewer.com/${signerAddress}`} target="_blank" rel="noopener noreferrer">{signerAddress}</a>
+                        {order().orderInfo.approvalsMask & (1 << index()) ? " ✅" : " ❌"}
+                        {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+
+              <div class="label">Approvals:</div>
+              <div id="order_approvals" class="value">
+                {order().orderInfo.approvalsNum} / {order().orderInfo.threshold}
               </div>
 
               <div class="flex items-center my-4">

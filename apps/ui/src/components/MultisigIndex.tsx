@@ -8,6 +8,7 @@ import { addressToString, equalsMsgAddresses } from "utils";
 import { userAddress } from "@/storages/ton-connect";
 import { setMultisigAddress } from "@/storages/multisig-address";
 import { isTestnet } from "@/storages/chain";
+import { YouBadge } from "@/components/YouBadge";
 
 export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
   const navigation = useNavigation();
@@ -77,11 +78,7 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
                       >
                         {signerAddress}
                       </a>
-                      {equalsMsgAddresses(signer.address, userAddress()) ? (
-                        <div class="badge">It's you</div>
-                      ) : (
-                        ""
-                      )}
+                      {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
                     </div>
                   );
                 }}
