@@ -52,7 +52,6 @@ export async function getEmulatedTxInfo(
   for await (const tx of iter) {
     transactions.push(tx);
   }
-  debugger;
 
   for (let i = 0; i < transactions.length; i++) {
     const tx = transactions[i];
