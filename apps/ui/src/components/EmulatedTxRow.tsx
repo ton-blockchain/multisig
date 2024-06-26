@@ -197,3 +197,4 @@ function ParsedDetails({ item }: { item: ParsedBlockchainTransaction }) {
     </details>
   );
 }
+
