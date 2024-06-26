@@ -18,6 +18,12 @@ export const ImportMultisig: Component = () => {
     setMultisig((e.target as HTMLInputElement).value);
   };
 
+  const handleKeyPress = (e: KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      onImportMultisig();
+    }
+  };
+
   return (
     <div id="importScreen" class="screen">
       <div>Enter multisig address:</div>
@@ -26,6 +32,7 @@ export const ImportMultisig: Component = () => {
         type="text"
         value={multisig()}
         onInput={onInput}
+        onKeyPress={handleKeyPress}
         required={true}
       />
       <button id="import_okButton" onClick={onImportMultisig}>

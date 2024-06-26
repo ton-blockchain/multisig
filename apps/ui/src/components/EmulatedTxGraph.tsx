@@ -1,7 +1,11 @@
-import { createEffect } from "solid-js";
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import cytoscape, { LayoutOptions } from "cytoscape";
 import dagre, { DagreLayoutOptions } from "cytoscape-dagre";
 import { EmulationResult } from "utils/src/getEmulatedTxInfo";
+import { addressToString } from "utils";
+import { fromNano } from "@ton/core";
+import { isTestnet } from "@/storages/chain";
+import { EmulatedTxRow } from "@/components/EmulatedTxRow";
 
 cytoscape.use(dagre);
 
@@ -11,6 +15,7 @@ interface EmulatedTxGraphProps {
 
 export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
   let containerRef: HTMLDivElement | undefined;
+  const [selectedNode, setSelectedNode] = createSignal<any>(null);
 
   const initializeCytoscape = () => {
     if (!containerRef || !props.emulated?.transactions) return;
@@ -28,11 +33,40 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
               !tx.description.computePhase.success
             ? "failed"
             : "unknown";
+
+      const amount = tx.inMessage?.info.type === "internal" 
+        ? fromNano(tx.inMessage.info.value.coins) + " TON"
+        : "External";
+
+      const shortenAddress = (address: string) => {
+        if (address === "External" || address === "Unknown") return address;
+        return `${address.slice(0, 4)}...${address.slice(-4)}`;
+      };
+
+      const from = tx.inMessage?.info.type === "internal" && tx.inMessage?.info.src 
+        ? shortenAddress(addressToString({
+          isBounceable: tx.inMessage.info.bounce,
+          isTestOnly: isTestnet(),
+          address: tx.inMessage.info.src,
+        }))
+        : "External";
+
+      const to = tx.inMessage?.info.type === "internal" && tx.inMessage?.info.dest
+        ? shortenAddress(addressToString({
+          isBounceable: tx.inMessage.info.bounce,
+          isTestOnly: isTestnet(),
+          address: tx.inMessage.info.dest,
+        }))
+        : "Unknown";
+
       return {
         data: {
           id: tx.lt.toString(),
-          label: `${tx.lt}\n${status}`,
+          label: `${tx.lt}\n${status}\nFrom: ${from}\nTo: ${to}\nAmount: ${amount}`,
           status: status,
+          from: from,
+          to: to,
+          amount: amount,
         },
       };
     });
@@ -59,11 +93,12 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
             color: "#ffffff",
             "text-valign": "center",
             "text-halign": "center",
-            width: 150,
-            height: 120,
+            width: 280,
+            height: 220,
             shape: "rectangle",
             "text-wrap": "wrap",
-            "text-max-width": "100",
+            "text-max-width": "260",
+            "font-size": "16px",
           },
         },
         {
@@ -88,23 +123,59 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
             "curve-style": "bezier",
           },
         },
+        {
+          selector: "node:selected",
+          style: {
+            "border-width": 3,
+            "border-color": "#ffd700",
+          },
+        },
       ],
       layout: {
         name: "dagre",
         rankDir: "LR",
-        nodeSep: 120,
-        rankSep: 200,
+        nodeSep: 220, // Increased to accommodate larger nodes
+        rankSep: 320, // Increased to accommodate larger nodes
         animate: true,
         animationDuration: 500,
         fit: true,
-        padding: 30,
+        padding: 100,
       } as LayoutOptions & DagreLayoutOptions,
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    cy.on("tap", (event: any) => {
+      if (event.target === cy) {
+        setSelectedNode(null);
+      }
+    });
+
     cy.on("tap", "node", (evt: { target: any }) => {
       const node = evt.target;
-      console.log("Tapped node:", node.id(), "Status:", node.data("status"));
+      setSelectedNode(node.data());
+    });
+
+    // Add zoom controls
+    const zoomIn = () => cy.zoom(cy.zoom() * 1.2);
+    const zoomOut = () => cy.zoom(cy.zoom() / 1.2);
+    const resetZoom = () => cy.fit();
+
+    const zoomInBtn = document.createElement("button");
+    zoomInBtn.innerHTML = "+";
+    zoomInBtn.onclick = zoomIn;
+    containerRef?.appendChild(zoomInBtn);
+
+    const zoomOutBtn = document.createElement("button");
+    zoomOutBtn.innerHTML = "-";
+    zoomOutBtn.onclick = zoomOut;
+    containerRef?.appendChild(zoomOutBtn);
+
+    const resetBtn = document.createElement("button");
+    resetBtn.innerHTML = "Reset";
+    resetBtn.onclick = resetZoom;
+    containerRef?.appendChild(resetBtn);
+
+    onCleanup(() => {
+      cy.destroy();
     });
   };
 
@@ -119,9 +190,19 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
       <h3 class="text-lg font-semibold mb-4">Transaction Graph</h3>
       <div
         ref={containerRef}
-        style={{ width: "100%", height: "300px" }}
-        class="bg-gray-200"
+        style={{ width: "100%", height: "500px", position: "relative" }}
+        class="bg-gray-100 rounded-lg shadow-inner"
       ></div>
+      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+        <h3 class="text-lg font-semibold mb-4">Transaction Details</h3>
+        <Show when={selectedNode()} fallback={<p>Select a transaction to view details</p>}>
+          {(node) => {
+            const selectedTx = props.emulated.transactions.find(tx => tx.lt.toString() === node().id);
+            return selectedTx ? <EmulatedTxRow item={selectedTx} /> : null;
+          }}
+        </Show>
+      </div>
     </div>
   );
 }
+
