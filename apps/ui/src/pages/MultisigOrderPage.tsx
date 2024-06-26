@@ -22,6 +22,7 @@ import {
   createSignal,
   For,
   Match,
+  Show,
   Switch,
 } from "solid-js";
 import {
@@ -278,33 +279,40 @@ export function MultisigOrderPage() {
               <div class="mb-4">
                 <div class="text-sm text-gray-500 mb-1">Signers:</div>
                 <div id="order_signersList" class="space-y-2">
-                  <For each={order().orderInfo.signers}>
-                    {(signer, index) => {
-                      const signerAddress = signer.address.toString({urlSafe: true, bounceable: false});
-                      return (
-                        <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
-                          <div class="flex items-center">
-                            <span class="text-gray-600 mr-2">#{index() + 1}</span>
-                            <a href={`https://tonviewer.com/${signerAddress}`} target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 transition-colors duration-200">{signerAddress}</a>
-                            {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
+                  <Show when={order() && order().orderInfo}>
+                    <For each={order().orderInfo.signers}>
+                      {(signer, index) => {
+                        const signerAddress = signer.address.toString({urlSafe: true, bounceable: false});
+                        return (
+                          <div class="flex items-center justify-between bg-gray-50 p-2 rounded">
+                            <div class="flex items-center">
+                              <span class="text-gray-600 mr-2">#{index() + 1}</span>
+                              <a href={`https://tonviewer.com/${signerAddress}`} target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:text-blue-700 transition-colors duration-200">{signerAddress}</a>
+                              {equalsMsgAddresses(signer.address, userAddress()) && <YouBadge />}
+                            </div>
+                            <div>
+                              {order().orderInfo.approvalsMask & (1 << index()) 
+                                ? <span class="text-green-500">✅ Approved</span> 
+                                : <span class="text-red-500">❌ Not approved</span>
+                              }
+                            </div>
                           </div>
-                          <div>
-                            {order().orderInfo.approvalsMask & (1 << index()) 
-                              ? <span class="text-green-500">✅ Approved</span> 
-                              : <span class="text-red-500">❌ Not approved</span>
-                            }
-                          </div>
-                        </div>
-                      );
-                    }}
-                  </For>
+                        );
+                      }}
+                    </For>
+                  </Show>
                 </div>
               </div>
 
               <div>
                 <div class="text-sm text-gray-500 mb-1">Approvals:</div>
                 <div id="order_approvals" class="text-lg font-medium">
-                  {order().orderInfo.approvalsNum} / {order().orderInfo.threshold}
+                  <Show 
+                    when={order() && order().orderInfo}
+                    fallback="N/A (Executed Order)"
+                  >
+                    {order().orderInfo.approvalsNum} / {order().orderInfo.threshold}
+                  </Show>
                 </div>
               </div>
             </div>
@@ -370,7 +378,3 @@ export function MultisigOrderPage() {
     </Switch>
   );
 }
-
-
-
-
