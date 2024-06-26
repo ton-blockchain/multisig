@@ -110,19 +110,26 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
         {
           selector: 'node',
           style: {
-            'background-color': '#ffffff',
-            'label': 'data(content)', // Changed from 'data(label)' to 'data(content)'
-            'color': '#333333',
+            'background-color': '#f7fafc', // Light gray background
+            'label': 'data(content)',
+            'color': '#4a5568', // Dark gray text
             'text-valign': 'center',
             'text-halign': 'center',
-            'width': 220,
-            'height': 120,
+            'width': 240,
+            'height': 140,
             'shape': 'roundrectangle',
             'text-wrap': 'wrap',
-            'text-max-width': '200px',
-            'font-size': '12px',
+            'text-max-width': '220px',
+            'font-size': '11px',
+            'font-family': 'Inter, sans-serif', // Assuming you're using Inter font
+            'font-weight': 400,
+            'line-height': 1.4,
             'border-width': 1,
             'border-color': '#e2e8f0',
+            'text-margin-y': 5,
+            'padding': '10px',
+            'text-outline-width': 1,
+            'text-outline-color': '#ffffff',
           }
         },
         {
@@ -158,9 +165,16 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
     // Update the node content to include the transaction type only if it's not empty
     cy.nodes().forEach((node) => {
       const data = node.data();
-      let content = `${data.label}\nFrom: ${data.from}\n(${data.fromInterfaces})\nTo: ${data.to}\n(${data.toInterfaces})\nAmount: ${data.amount} TON\nType: ${data.messageType}`;
+      let content = `Transaction ${data.label}\n` +
+                    `From: ${data.from}\n` +
+                    `(${data.fromInterfaces})\n` +
+                    `To: ${data.to}\n` +
+                    `(${data.toInterfaces})\n` +
+                    `Amount: ${data.amount} TON`;
       if (data.transactionType) {
         content += `\nMessage: ${data.transactionType}`;
+      } else {
+        content += `\nMessage: ${data.messageType}`;
       }
       node.data('content', content);
     });
