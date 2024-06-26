@@ -168,7 +168,7 @@ function ComputePhaseDetails({ phase }: { phase: TransactionComputePhase }) {
 }
 
 function ActionPhaseDetails({ item }: { item: ParsedBlockchainTransaction }) {
-  if (item.description.type !== "generic") return null;
+  if (item.description.type !== "generic" || !item.description.actionPhase) return null;
   const { actionPhase } = item.description;
   return (
     <details class="bg-gray-50 p-2 rounded">
@@ -197,4 +197,3 @@ function ParsedDetails({ item }: { item: ParsedBlockchainTransaction }) {
     </details>
   );
 }
-
