@@ -10,6 +10,7 @@ import { MultisigOrderPage } from "./pages/MultisigOrderPage";
 import { MultisigPage } from "./pages/MultisigPage";
 import { StartScreen } from "./pages/StartScreen";
 import { setTonConnectUI } from "./storages/ton-connect";
+import { UpdateMultisig } from "./pages/UpdateMultisig";
 
 export const App: Component = () => {
   onMount(() => {
@@ -64,6 +65,7 @@ export const App: Component = () => {
           path="/multisig/:address/:orderId"
           component={MultisigOrderPage}
         />
+        <Route path="/multisig/:address/update" component={UpdateMultisig} />
         <Route path="/start" component={StartScreen} />
         <Route path="/create-multisig" component={CreateMultisig} />
         <Route path="/import-multisig" component={ImportMultisig} />

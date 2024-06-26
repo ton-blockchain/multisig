@@ -171,12 +171,13 @@ export function MultisigIndex({ info }: { info: MultisigInfo }): JSXElement {
             </div>
           </div>
 
-          <button
+          <A
             id="multisig_updateButton"
+            href={`/multisig/${params.address}/update`}
             class="mb-6 text-[#0088cc] hover:text-[#006699] transition-colors duration-200"
           >
             Change multisig configuration
-          </button>
+          </A>
 
           <button
             id="multisig_createNewOrderButton"
