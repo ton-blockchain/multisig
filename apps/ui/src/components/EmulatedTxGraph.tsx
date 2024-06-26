@@ -14,6 +14,12 @@ interface EmulatedTxGraphProps {
   emulated: EmulationResult;
 }
 
+// Add this function to shorten addresses
+const shortenAddress = (address: string) => {
+  if (address.length <= 10) return address;
+  return `${address.slice(0, 5)}...${address.slice(-5)}`;
+};
+
 export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
   let containerRef: HTMLDivElement | undefined;
   const [selectedNode, setSelectedNode] = createSignal<any>(null);
@@ -22,10 +28,12 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
   const initializeCytoscape = () => {
     if (!containerRef || !props.emulated?.transactions) return;
 
+    // Ensure the container has a defined size
+    containerRef.style.width = '100%';
+    containerRef.style.height = '500px';
+
     const nodes = props.emulated.transactions.map((tx) => {
-      const status =
-        // eslint-disable-next-line no-nested-ternary
-        tx.description.type === "generic" &&
+      const status = tx.description.type === "generic" &&
         tx.description.computePhase.type === "vm" &&
         tx.description.computePhase.success &&
         tx.description.actionPhase?.success
@@ -37,13 +45,8 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
             : "unknown";
 
       const amount = tx.inMessage?.info.type === "internal" 
-        ? fromNano(tx.inMessage.info.value.coins) + " TON"
+        ? fromNano(tx.inMessage.info.value.coins)
         : "External";
-
-      const shortenAddress = (address: string) => {
-        if (address === "External" || address === "Unknown") return address;
-        return `${address.slice(0, 4)}...${address.slice(-4)}`;
-      };
 
       const from = tx.inMessage?.info.type === "internal" && tx.inMessage?.info.src 
         ? shortenAddress(addressToString({
@@ -64,7 +67,7 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
       return {
         data: {
           id: tx.lt.toString(),
-          label: `${tx.lt}\n${status}\nFrom: ${from}\nTo: ${to}\nAmount: ${amount}`,
+          label: `${tx.lt}`,
           status: status,
           from: from,
           to: to,
@@ -90,37 +93,47 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
         {
           selector: "node",
           style: {
-            "background-color": "#0088cc",
+            "background-color": "#ffffff",
             label: "data(label)",
-            color: "#ffffff",
+            color: "#333333",
             "text-valign": "center",
             "text-halign": "center",
-            width: 280,
-            height: 220,
-            shape: "rectangle",
+            width: 220,
+            height: 120,
+            shape: "roundrectangle",
             "text-wrap": "wrap",
-            "text-max-width": "260",
-            "font-size": "16px",
+            "text-max-width": "200px",
+            "font-size": "12px",
+            "border-width": 1,
+            "border-color": "#e2e8f0",
+            "text-margin-y": 5,
+            content: "data(label)",
+            "text-opacity": 1,
+            "box-shadow": "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
           },
         },
         {
           selector: "node[status = 'success']",
           style: {
-            "background-color": "#28a745",
+            "background-color": "#f0fff4",
+            "border-color": "#48bb78",
+            "border-width": 2,
           },
         },
         {
           selector: "node[status = 'failed']",
           style: {
-            "background-color": "#dc3545",
+            "background-color": "#fff5f5",
+            "border-color": "#f56565",
+            "border-width": 2,
           },
         },
         {
           selector: "edge",
           style: {
-            width: 2,
-            "line-color": "#0088cc",
-            "target-arrow-color": "#0088cc",
+            width: 1,
+            "line-color": "#a0aec0",
+            "target-arrow-color": "#a0aec0",
             "target-arrow-shape": "triangle",
             "curve-style": "bezier",
           },
@@ -129,20 +142,33 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
           selector: "node:selected",
           style: {
             "border-width": 3,
-            "border-color": "#ffd700",
+            "border-color": "#4299e1",
+            "background-color": "#ebf8ff",
           },
         },
+        {
+          selector: "node:active",
+          style: {
+            "text-opacity": 1,
+            "z-index": 9999
+          }
+        }
       ],
       layout: {
         name: "dagre",
-        rankDir: "LR",
-        nodeSep: 220, // Increased to accommodate larger nodes
-        rankSep: 320, // Increased to accommodate larger nodes
+        rankDir: "TB",
+        nodeSep: 80,
+        rankSep: 120,
         animate: true,
         animationDuration: 500,
         fit: true,
-        padding: 100,
+        padding: 50,
       } as LayoutOptions & DagreLayoutOptions,
+    });
+
+    cy.nodes().forEach((node) => {
+      const data = node.data();
+      node.style('content', `${data.label}\nFrom: ${data.from}\nTo: ${data.to}\nAmount: ${data.amount} TON`);
     });
 
     cy.on("tap", (event: any) => {
@@ -155,7 +181,27 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
       const node = evt.target;
       setSelectedNode(node.data());
       setShowPopup(true);
+      
+      // Highlight the selected node and connected edges
+      cy.elements().removeClass("highlighted");
+      node.addClass("highlighted");
+      node.connectedEdges().addClass("highlighted");
     });
+
+    // Add styles for highlighted elements
+    cy.style()
+      .selector("node.highlighted")
+      .style({
+        "background-color": "#ebf8ff",
+        "border-width": 3,
+        "border-color": "#4299e1",
+      })
+      .selector("edge.highlighted")
+      .style({
+        "line-color": "#4299e1",
+        width: 2,
+      })
+      .update();
 
     onCleanup(() => {
       cy.destroy();
@@ -164,16 +210,17 @@ export function EmulatedTxGraph(props: EmulatedTxGraphProps) {
 
   createEffect(() => {
     if (props.emulated) {
-      initializeCytoscape();
+      // Delay initialization to ensure the container is rendered
+      setTimeout(initializeCytoscape, 0);
     }
   });
 
   return (
-    <div class="mt-8">
+    <div class="mt-8 mb-8">
       <h3 class="text-lg font-semibold mb-4">Transaction Graph</h3>
       <div
         ref={containerRef}
-        style={{ width: "100%", height: "500px", position: "relative" }}
+        style={{ width: "100%", height: "500px" }}
         class="bg-gray-100 rounded-lg shadow-inner"
       ></div>
       <Show when={showPopup() && selectedNode()}>
