@@ -1,12 +1,13 @@
-import {chain} from "@/storages/chain";
-import {Address} from "@ton/core";
-import {CHAIN, ConnectedWallet, TonConnectUI} from "@tonconnect/ui";
-import {createEffect, createMemo, createSignal, onCleanup} from "solid-js";
+import { Address } from "@ton/core";
+import { CHAIN, ConnectedWallet, TonConnectUI } from "@tonconnect/ui";
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { chain } from "@/storages/chain";
 
 export const [tonConnectUI, setTonConnectUI] =
   createSignal<TonConnectUI | null>(null);
 
-export const [connectedWallet, setConnectedWallet] = createSignal<ConnectedWallet | null>(null);
+export const [connectedWallet, setConnectedWallet] =
+  createSignal<ConnectedWallet | null>(null);
 
 export const userAddress = createMemo(() => {
   const wallet = connectedWallet();
@@ -15,7 +16,13 @@ export const userAddress = createMemo(() => {
 
 export const userFriendlyAddress = createMemo(() => {
   const address = userAddress();
-  return address ? address.toString({urlSafe: true, bounceable: false, testOnly: chain() === CHAIN.TESTNET}) : null;
+  return address
+    ? address.toString({
+        urlSafe: true,
+        bounceable: false,
+        testOnly: chain() === CHAIN.TESTNET,
+      })
+    : null;
 });
 
 createEffect(() => {
@@ -27,7 +34,8 @@ createEffect(() => {
 
   setConnectedWallet(currentTonConnectUi.wallet as ConnectedWallet | null);
   const unsubscribe = currentTonConnectUi.onStatusChange(
-    (wallet: ConnectedWallet | null) => setConnectedWallet(wallet));
+    (wallet: ConnectedWallet | null) => setConnectedWallet(wallet),
+  );
 
   onCleanup(() => unsubscribe());
 });

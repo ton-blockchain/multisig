@@ -34,5 +34,6 @@
     "typescript": "5.4.5",
     "vite-plugin-solid": "2.10.2",
     "vite": "5.2.10"
-  }
+  },
+  "packageManager": "pnpm@8.6.7+sha512.bd1216a43fcbe2985ff41936a3f3b64c347c7c5a099e962ba764caa9321917fa99dbfae02f7a8a5f31e87c781b5ec8a7c0ca12122833dbcb2a937a50fb230441"
 }

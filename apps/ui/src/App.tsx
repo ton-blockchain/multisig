@@ -1,15 +1,16 @@
-import {CreateMultisig} from "@/pages/CreateMultisig";
-import {isTestnet, setChain} from "@/storages/chain";
-import {Route, Router} from "@solidjs/router";
-import {CHAIN, TonConnectUI} from "@tonconnect/ui";
-import {Component, onMount, Show} from "solid-js";
+import { Route, Router } from "@solidjs/router";
+import { CHAIN, TonConnectUI } from "@tonconnect/ui";
+import { Component, onMount, Show } from "solid-js";
+import { isTestnet, setChain } from "@/storages/chain";
+import { CreateMultisig } from "@/pages/CreateMultisig";
 import "../css/main.css";
-import {Home} from "./pages/Home";
-import {ImportMultisig} from "./pages/ImportMultisig";
-import {MultisigOrderPage} from "./pages/MultisigOrderPage";
-import {MultisigPage} from "./pages/MultisigPage";
-import {StartScreen} from "./pages/StartScreen";
-import {setTonConnectUI} from "./storages/ton-connect";
+import { Home } from "./pages/Home";
+import { ImportMultisig } from "./pages/ImportMultisig";
+import { MultisigOrderPage } from "./pages/MultisigOrderPage";
+import { MultisigPage } from "./pages/MultisigPage";
+import { StartScreen } from "./pages/StartScreen";
+import { setTonConnectUI } from "./storages/ton-connect";
+import { UpdateMultisig } from "./pages/UpdateMultisig";
 
 export const App: Component = () => {
   onMount(() => {
@@ -24,7 +25,7 @@ export const App: Component = () => {
   const onChainChange = (chain: CHAIN) => {
     setChain(chain);
     window.location.reload();
-  }
+  };
 
   return (
     <>
@@ -42,10 +43,14 @@ export const App: Component = () => {
           Multisig&nbsp;
           <small>
             <Show when={isTestnet()}>
-              <a onClick={() => onChainChange(CHAIN.MAINNET)}>Switch to Mainnet</a>
+              <a onClick={() => onChainChange(CHAIN.MAINNET)}>
+                Switch to Mainnet
+              </a>
             </Show>
             <Show when={!isTestnet()}>
-              <a onClick={() => onChainChange(CHAIN.TESTNET)}>Switch to Testnet</a>
+              <a onClick={() => onChainChange(CHAIN.TESTNET)}>
+                Switch to Testnet
+              </a>
             </Show>
           </small>
         </div>
@@ -54,15 +59,16 @@ export const App: Component = () => {
         <div id="tonConnectButton"></div>
       </div>
       <Router>
-        <Route path="/" component={Home}/>
-        <Route path="/multisig/:address" component={MultisigPage}/>
+        <Route path="/" component={Home} />
+        <Route path="/multisig/:address" component={MultisigPage} />
         <Route
           path="/multisig/:address/:orderId"
           component={MultisigOrderPage}
         />
-        <Route path="/start" component={StartScreen}/>
-        <Route path="/create-multisig" component={CreateMultisig}/>
-        <Route path="/import-multisig" component={ImportMultisig}/>
+        <Route path="/multisig/:address/update" component={UpdateMultisig} />
+        <Route path="/start" component={StartScreen} />
+        <Route path="/create-multisig" component={CreateMultisig} />
+        <Route path="/import-multisig" component={ImportMultisig} />
       </Router>
     </>
   );

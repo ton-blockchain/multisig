@@ -1,5 +1,8 @@
 import { Address } from "@ton/core";
-import { sendToIndex } from "./MyNetworkProvider";
+import DataLoader from "dataloader";
+import { Account } from "tonapi-sdk-js";
+import { getTonapi, sendToIndex } from "./api";
+import { ParsedBlockchainTransaction } from "./getEmulatedTxInfo";
 
 export interface AddressInfo {
   isBounceable: boolean;
@@ -30,6 +33,7 @@ export const explorerUrl = (address: string, isTestnet: boolean): string => {
 };
 
 const addressCache: { [key: string]: string } = {};
+const addressNameCache: { [key: string]: string } = {};
 
 export const getAddressFormat = async (
   address: Address,
@@ -50,6 +54,46 @@ export const getAddressFormat = async (
 
   return Address.parseFriendly(friendly);
 };
+
+export const getAddressName = async (
+  address: Address,
+  isTestnet: boolean,
+): Promise<string> => {
+  const raw = address.toRawString();
+
+  let friendly = addressNameCache[raw];
+  if (!friendly) {
+    const tonapi = getTonapi(isTestnet);
+    const result = await tonapi.accounts.getAccount(raw);
+    friendly = result.name ?? result.address;
+    addressNameCache[raw] = friendly;
+  }
+
+  return friendly;
+};
+
+export const GetAccount = new DataLoader<
+  {
+    address: Address;
+    isTestnet: boolean;
+  },
+  Account,
+  string
+>(
+  async (keys) => {
+    const isTestnet = keys[0].isTestnet;
+    const tonapi = getTonapi(isTestnet);
+    const result = await tonapi.accounts.getAccounts({
+      account_ids: keys.map((p) => p.address.toRawString()),
+    });
+    return result.accounts;
+  },
+  {
+    cacheKeyFn({ address, isTestnet }) {
+      return `${address.toRawString()} ${isTestnet.toString()}`;
+    },
+  },
+);
 
 export const addressToString = (address: AddressInfo): string => {
   return address.address.toString({
@@ -101,3 +145,37 @@ export const sanitizeHTML = (text: string): string => {
   d.innerText = text;
   return d.innerHTML;
 };
+
+export function bigIntToBuffer(data: bigint | undefined): Buffer {
+  if (!data) {
+    return Buffer.from([]);
+  }
+  const hexStr = data.toString(16);
+  const pad = hexStr.padStart(64, "0");
+  const hashHex = Buffer.from(pad, "hex");
+
+  return hashHex;
+}
+
+export function IsTxGenericSuccess(tx: ParsedBlockchainTransaction) {
+  if (tx.description.type !== "generic") {
+    return false;
+  }
+
+  if (tx.description.aborted) {
+    return false;
+  }
+
+  if (
+    tx.description.computePhase.type !== "vm" ||
+    tx.description.computePhase.exitCode !== 0
+  ) {
+    return false;
+  }
+
+  if (tx.description.actionPhase.resultCode !== 0) {
+    return false;
+  }
+
+  return true;
+}

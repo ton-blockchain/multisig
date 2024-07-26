@@ -1,4 +1,3 @@
-import {isTestnet} from "@/storages/chain";
 import { useParams } from "@solidjs/router";
 import { Address } from "@ton/core";
 import {
@@ -17,13 +16,16 @@ import {
   onMount,
   Switch,
 } from "solid-js";
+import { isTestnet } from "@/storages/chain";
 import { MultisigIndex } from "../components/MultisigIndex";
+import { setMultisigAddress } from "@/storages/multisig-address";
 
 function fetchMultisig(
   multisigAddress: string,
   options: { refetching?: boolean } = {},
 ): Promise<MultisigInfo> {
   const isFirst = !options.refetching;
+  setMultisigAddress(Address.parse(multisigAddress));
   return checkMultisig(
     Address.parseFriendly(multisigAddress),
     MULTISIG_CODE,

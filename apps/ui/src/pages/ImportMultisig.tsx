@@ -15,7 +15,24 @@ export const ImportMultisig: Component = () => {
   };
 
   const onInput = (e: Event) => {
-    setMultisig((e.target as HTMLInputElement).value);
+    const value = (e.target as HTMLInputElement).value;
+    setMultisig(value);
+
+    // Проверяем, является ли введенное значение валидным адресом
+    try {
+      Address.parse(value);
+      // Если адрес валиден, автоматически импортируем его
+      onImportMultisig();
+    } catch (error) {
+      // Если адрес невалиден, ничего не делаем
+    }
+  };
+
+  const handleKeyPress = (e: KeyboardEvent) => {
+    if ((e.key === "Enter" && (e.metaKey || e.ctrlKey)) || e.key === "Enter") {
+      e.preventDefault();
+      onImportMultisig();
+    }
   };
 
   return (
@@ -26,6 +43,7 @@ export const ImportMultisig: Component = () => {
         type="text"
         value={multisig()}
         onInput={onInput}
+        onKeyDown={handleKeyPress}
         required={true}
       />
       <button id="import_okButton" onClick={onImportMultisig}>
