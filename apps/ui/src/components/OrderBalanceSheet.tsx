@@ -7,6 +7,7 @@ import { tonapiClient } from "@/storages/ton-client";
 import { multisigAddress } from "@/storages/multisig-address";
 import { isTestnet } from "@/storages/chain";
 import { VerifiedIcon } from "./VerifiedIcon";
+import { createMemo } from 'solid-js';
 
 type BalanceSheetRow = {
   assetAddress: string;
@@ -247,95 +248,206 @@ export function OrderBalanceSheet({
     {},
   );
 
+  const groupedAssets = createMemo(() => {
+    const assets = jettonComputedSheets()?.keys ?? {};
+    return {
+      ton: Object.keys(assets).filter(key => key.toLowerCase().includes('ton')),
+      other: Object.keys(assets).filter(key => !key.toLowerCase().includes('ton'))
+    };
+  });
+
   return (
-    <div class="my-8">
+    <div class="my-8 overflow-x-auto">
       <h2 class="text-2xl font-bold mb-4">Order Balance Sheet</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600">
-                Address
-              </th>
-              <For each={Object.keys(jettonComputedSheets()?.keys ?? {})}>
-                {(key) => (
-                  <th class="px-4 py-3 text-right text-sm font-semibold text-gray-600">
-                    <div class="flex items-center justify-end space-x-1">
-                      <span>{jettonComputedSheets()?.keys[key].name}</span>
-                      {jettonComputedSheets()?.keys[key].isVerified && (
-                        <VerifiedIcon className="w-4 h-4 text-transparent" />
-                      )}
-                    </div>
-                  </th>
-                )}
-              </For>
-            </tr>
-          </thead>
-          <tbody>
-            <For each={jettonComputedSheets()?.rows ?? []}>
-              {({ isMe, address, account, balances }) => {
-                const keys = jettonComputedSheets().keys;
-                const friendlyAddress = Address.parse(address).toString({
-                  urlSafe: true,
-                  bounceable: !account.is_wallet,
-                });
-
-                return (
-                  <tr class="border-t border-gray-200 hover:bg-gray-50 transition-colors">
-                    <td class="px-4 py-3">
-                      <a
-                        href={`https://tonviewer.com/${friendlyAddress}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        {isMe ? (
-                          <span class="font-semibold">Multisig</span>
-                        ) : (
-                          <span class="font-mono text-sm">
-                            {friendlyAddress}
-                          </span>
-                        )}
-                      </a>
-                      <div class="text-xs text-gray-500 mt-1">
-                        {account.interfaces?.join(", ") ?? "Unknown contract"}
-                      </div>
-                    </td>
-                    <For each={Object.keys(keys)}>
-                      {(key) => {
-                        const assetInfo = balances[key];
-                        if (!assetInfo) {
-                          return (
-                            <td class="px-4 py-3 text-right text-gray-400">
-                              -
-                            </td>
-                          );
-                        }
-
-                        let amount = fromUnits(
-                          assetInfo.amount.toString(),
-                          assetInfo.decimals,
-                        );
-
-                        if (amount.indexOf(".") !== -1) {
-                          const [left, right] = amount.split(".");
-                          amount = `${left}.${right.padEnd(assetInfo.decimals, "0")}`;
-                        }
-
-                        return (
-                          <td class="px-4 py-3 text-right font-mono">
-                            {amount}
-                          </td>
-                        );
-                      }}
-                    </For>
-                  </tr>
-                );
-              }}
+      <table class="w-full border-collapse bg-white shadow-sm rounded-lg overflow-hidden">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="px-4 py-3 text-left text-sm font-semibold text-gray-600 sticky left-0 bg-gray-100 z-10">
+              Address
+            </th>
+            <For each={groupedAssets().ton.concat(groupedAssets().other)}>
+              {(key) => (
+                <th class="px-4 py-3 text-right text-sm font-semibold text-gray-600 whitespace-nowrap">
+                  <div class="flex items-center justify-end space-x-1">
+                    <span>{jettonComputedSheets()?.keys[key].name}</span>
+                    {jettonComputedSheets()?.keys[key].isVerified && (
+                      <VerifiedIcon className="w-4 h-4 text-transparent" />
+                    )}
+                  </div>
+                </th>
+              )}
             </For>
-          </tbody>
-        </table>
+          </tr>
+        </thead>
+        <tbody>
+          <For each={jettonComputedSheets()?.rows ?? []}>
+            {({ isMe, address, account, balances }) => (
+              <tr class="border-t border-gray-200 hover:bg-gray-50 transition-colors">
+                <td class="px-4 py-3 sticky left-0 bg-white z-10">
+                  <AddressCell
+                    isMe={isMe}
+                    address={address}
+                    account={account}
+                  />
+                </td>
+                <For each={groupedAssets().ton.concat(groupedAssets().other)}>
+                  {(key) => (
+                    <td class="px-4 py-3 text-right font-mono">
+                      <BalanceCell
+                        assetInfo={balances[key]}
+                        decimals={jettonComputedSheets()?.keys[key].decimals}
+                      />
+                    </td>
+                  )}
+                </For>
+              </tr>
+            )}
+          </For>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+import { createSignal, onMount, onCleanup } from 'solid-js';
+
+import { computePosition, flip, shift, offset } from '@floating-ui/dom';
+
+function AddressCell({ isMe, address, account }) {
+  const friendlyAddress = Address.parse(address).toString({
+    urlSafe: true,
+    bounceable: !account.is_wallet,
+  });
+
+  let anchorEl;
+  let tooltipEl;
+  const [showTooltip, setShowTooltip] = createSignal(false);
+
+  const updatePosition = () => {
+    if (anchorEl && tooltipEl) {
+      computePosition(anchorEl, tooltipEl, {
+        placement: 'top',
+        middleware: [offset(8), flip(), shift()],
+      }).then(({ x, y }) => {
+        Object.assign(tooltipEl.style, {
+          left: `${x}px`,
+          top: `${y}px`,
+        });
+      });
+    }
+  };
+
+  onMount(() => {
+    window.addEventListener('scroll', updatePosition);
+    window.addEventListener('resize', updatePosition);
+  });
+
+  onCleanup(() => {
+    window.removeEventListener('scroll', updatePosition);
+    window.removeEventListener('resize', updatePosition);
+  });
+
+  return (
+    <div class="relative">
+      <a
+        ref={anchorEl}
+        href={`https://tonviewer.com/${friendlyAddress}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="text-blue-600 hover:text-blue-800 transition-colors"
+        onMouseEnter={() => {
+          setShowTooltip(true);
+          updatePosition();
+        }}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {isMe ? (
+          <span class="font-semibold">Multisig</span>
+        ) : (
+          <span class="font-mono text-sm">
+            {friendlyAddress.slice(0, 6)}...{friendlyAddress.slice(-6)}
+          </span>
+        )}
+      </a>
+      <div class="text-xs text-gray-500 mt-1">
+        {account.interfaces?.join(", ") ?? "Unknown contract"}
       </div>
+      {showTooltip() && (
+        <div
+          ref={tooltipEl}
+          class="absolute z-50 bg-white border border-gray-200 p-2 rounded shadow-lg whitespace-nowrap"
+        >
+          {friendlyAddress}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BalanceCell({ assetInfo, decimals }) {
+  if (!assetInfo) {
+    return <span class="text-gray-400">-</span>;
+  }
+
+  const amount = fromUnits(assetInfo.amount.toString(), decimals);
+  const [integerPart, fractionalPart] = amount.split('.');
+  const abbreviatedAmount = Number(amount).toLocaleString(undefined, {
+    maximumFractionDigits: 2,
+    notation: 'compact',
+    compactDisplay: 'short'
+  });
+
+  let anchorEl;
+  let tooltipEl;
+  const [showTooltip, setShowTooltip] = createSignal(false);
+
+  const updatePosition = () => {
+    if (anchorEl && tooltipEl) {
+      computePosition(anchorEl, tooltipEl, {
+        placement: 'top',
+        middleware: [offset(8), flip(), shift()],
+      }).then(({ x, y }) => {
+        Object.assign(tooltipEl.style, {
+          left: `${x}px`,
+          top: `${y}px`,
+        });
+      });
+    }
+  };
+
+  onMount(() => {
+    window.addEventListener('scroll', updatePosition);
+    window.addEventListener('resize', updatePosition);
+  });
+
+  onCleanup(() => {
+    window.removeEventListener('scroll', updatePosition);
+    window.removeEventListener('resize', updatePosition);
+  });
+
+  return (
+    <div class="relative">
+      <span
+        ref={anchorEl}
+        onMouseEnter={() => {
+          setShowTooltip(true);
+          updatePosition();
+        }}
+        onMouseLeave={() => setShowTooltip(false)}
+      >
+        {abbreviatedAmount}
+      </span>
+      {showTooltip() && (
+        <div
+          ref={tooltipEl}
+          class="absolute z-50 bg-white border border-gray-200 p-2 rounded shadow-lg whitespace-nowrap"
+        >
+          {integerPart}.
+          <span class="text-gray-500">
+            {fractionalPart.padEnd(decimals, "0")}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

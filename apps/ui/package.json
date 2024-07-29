@@ -13,6 +13,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@floating-ui/dom": "^1.6.8",
     "@solidjs/router": "0.13.2",
     "@ton/sandbox": "^0.19.0",
     "@tonconnect/protocol": "2.2.6",
