@@ -103,7 +103,7 @@ const showScreen = (name: ScreenType): void => {
 }
 
 const goHome = (): void => {
-    if (currentScreen === 'loadingScreen') {
+    if (currentScreen === 'startScreen' || currentScreen === 'loadingScreen' || currentScreen === 'multisigScreen') {
         return;
     }
     if (currentScreen === 'importScreen' || (currentScreen === 'newMultisigScreen' && !currentMultisigInfo)) {
