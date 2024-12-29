@@ -29,10 +29,10 @@ export const explorerUrl = (address: string, isTestnet: boolean) => {
     return (isTestnet ? 'https://testnet.tonviewer.com/' : 'https://tonviewer.com/') + address;
 }
 
-const addressCache: {[key: string]: string} = {};
-
 export const getAddressFormat = async (address: Address, isTestnet: boolean): Promise<AddressInfo> => {
     const raw = address.toRawString();
+
+    // NOTE: It will not work correctly if the address was uninitialized and then became a not-wallet-smart-contact. However, we assume that such situations do not occur in practice. You can manually clear the local storage in this case
 
     let friendly = localStorage.getItem('address_' + raw);
     if (!friendly) {
