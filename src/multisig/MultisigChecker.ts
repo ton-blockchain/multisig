@@ -108,7 +108,7 @@ export const checkMultisig = async (
     multisigOrderCode: Cell,
     isTestnet: boolean,
     lastOrdersMode: 'none' | 'history' | 'aggregate',
-    needAdditionalChecks: boolean,
+    needAdditionalGetMethodChecks: boolean,
 ): Promise<MultisigInfo> => {
 
     // Account State and Data
@@ -149,7 +149,7 @@ export const checkMultisig = async (
 
     const provider = new MyNetworkProvider(multisigAddress.address, isTestnet);
 
-    if (needAdditionalChecks) {
+    if (needAdditionalGetMethodChecks) {
         const getData = await multisigContract.getMultisigData(provider);
 
         if (parsedData.allowArbitraryOrderSeqno) {
