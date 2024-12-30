@@ -434,7 +434,7 @@ const renderCurrentOrderInfo = (): void => {
 
 
     $('#order_approvals').innerText = approvalsNum + '/' + threshold;
-    $('#order_expiresAt').innerText = (isExpired ? '❌ EXPIRED - ' : '') + expiresAt.toString();
+    $('#order_expiresAt').innerText = ((isExpired && !isExecuted) ? '❌ EXPIRED - ' : '') + expiresAt.toString();
 
     let isApprovedByMe = false;
     let signersHTML = '';
