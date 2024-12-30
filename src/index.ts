@@ -600,7 +600,7 @@ $('#order_approveButton').addEventListener('click', async () => {
 
 // NEW ORDER
 
-type FieldType = 'TON' | 'Jetton' | 'Address' | 'URL' | 'Status';
+type FieldType = 'TON' | 'Jetton' | 'Address' | 'URL' | 'Status' | 'String';
 
 interface ValidatedValue {
     value?: any;
@@ -644,11 +644,17 @@ const validateValue = (fieldName: string, value: string, fieldType: FieldType): 
         }
     }
 
-    if (value === null || value === undefined || value === '') {
+    if (fieldType !== 'String' && (value === null || value === undefined || value === '')) {
         return makeError(`Empty`);
     }
 
     switch (fieldType) {
+        case 'String':
+            return {
+                value,
+                error: undefined
+            };
+
         case 'TON':
             return parseAmount(value, 9);
 
@@ -762,13 +768,19 @@ const orderTypes: OrderType[] = [
             toAddress: {
                 name: 'Destination Address',
                 type: 'Address'
+            },
+            comment: {
+                name: 'Optional comment',
+                type: 'String'
             }
         },
         makeMessage: async (values) => {
+            const body = !values.comment ? beginCell().endCell() : beginCell().storeUint(0, 32).storeStringTail(values.comment).endCell();
+
             return {
                 toAddress: values.toAddress,
                 tonAmount: values.amount,
-                body: beginCell().endCell()
+                body: body
             };
         }
     },
@@ -787,6 +799,10 @@ const orderTypes: OrderType[] = [
             toAddress: {
                 name: 'To Address',
                 type: 'Address'
+            },
+            comment: {
+                name: 'Optional comment',
+                type: 'String'
             }
         },
         makeMessage: async (values): Promise<MakeMessageResult> => {
@@ -797,10 +813,12 @@ const orderTypes: OrderType[] = [
 
             const jettonWalletAddress = await jettonMinter.getWalletAddress(provider, multisigAddress);
 
+            const forwardPayload = !values.comment ? null : beginCell().storeUint(0, 32).storeStringTail(values.comment).endCell();
+
             return {
                 toAddress: {address: jettonWalletAddress, isBounceable: true, isTestOnly: IS_TESTNET},
                 tonAmount: DEFAULT_AMOUNT,
-                body: JettonWallet.transferMessage(values.amount, values.toAddress.address, multisigAddress, null, 0n, null)
+                body: JettonWallet.transferMessage(values.amount, values.toAddress.address, multisigAddress, null, 0n, forwardPayload)
             }
         }
     },

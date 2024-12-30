@@ -182,9 +182,20 @@ export const checkMultisigOrder = async (
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseTransfer(slice);
             if (parsed.customPayload) throw new Error('Transfer custom payload not supported');
-            assert(parsed.forwardPayload.remainingBits === 0 && parsed.forwardPayload.remainingRefs === 0, 'Transfer forward payload not supported');
+
+            let comment = '';
+            if (parsed.forwardPayload.remainingBits === 0 && parsed.forwardPayload.remainingRefs === 0) {
+                comment = 'without comment'
+            } else if (parsed.forwardPayload.remainingBits >= 32) {
+                const op = parsed.forwardPayload.loadUint(32);
+                assert(op === 0, 'Transfer arbitrary forward payload not supported');
+                comment = 'with comment "' + parsed.forwardPayload.loadStringTail() + '"';
+            } else {
+                assert(false, 'Transfer arbitrary forward payload not supported');
+            }
+
             const toAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
-            return `Transfer ${parsed.jettonAmount} jettons (in units) from multisig to user ${toAddress};`;
+            return `Transfer ${parsed.jettonAmount} jettons (in units) from multisig to user ${toAddress} ${comment};`;
         } catch (e) {
         }
 
