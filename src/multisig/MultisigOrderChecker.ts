@@ -4,15 +4,17 @@ import {
     assert,
     equalsAddressLists,
     formatAddressAndUrl,
-    getAddressFormat, sanitizeHTML,
+    getAddressFormat,
+    sanitizeHTML,
 } from "../utils/utils";
-import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed} from "@ton/core";
+import {Cell, Dictionary, fromNano, loadMessageRelaxed} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
 import {MultisigInfo} from "./MultisigChecker";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
 import {intToLockType, JettonMinter, lockTypeToDescription} from "../jetton/JettonMinter";
 import {CommonMessageInfoRelaxedInternal} from "@ton/core/src/types/CommonMessageInfoRelaxed";
+import {SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS, SINGLE_NOMINATOR_POOL_OP_WITHDRAW} from "../index";
 
 export interface MultisigOrderInfo {
     address: AddressInfo;
@@ -226,6 +228,32 @@ export const checkMultisigOrder = async (
             if (parsed.action.customPayload) throw new Error('Burn custom payload not supported');
             const userAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             return `Force burn ${parsed.action.jettonAmount} jettons (in units) from user ${userAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
+        } catch (e) {
+        }
+
+        try {
+            const slice = cell.beginParse();
+            const op = slice.loadUint(32);
+            // https://github.com/ton-blockchain/mytonctrl/blob/master/mytoncore/contracts/single-nominator-pool/single-nominator-code.fc#L98
+            if (op === SINGLE_NOMINATOR_POOL_OP_WITHDRAW) {
+                const _queryId = slice.loadUint(64);
+                const coins = slice.loadCoins();
+                return `Withdraw ${fromNano(coins)} TON from pool`;
+            }
+        } catch (e) {
+        }
+
+        try {
+            const slice = cell.beginParse();
+            const op = slice.loadUint(32);
+            // https://github.com/ton-blockchain/mytonctrl/blob/master/mytoncore/contracts/single-nominator-pool/single-nominator-code.fc#L106
+            if (op === SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS) {
+                const _queryId = slice.loadUint(64);
+                const validatorAddress = slice.loadAddress();
+                const validatorAddressUrl = await formatAddressAndUrl(validatorAddress, isTestnet)
+
+                return `Change validator to ${validatorAddressUrl}`;
+            }
         } catch (e) {
         }
 

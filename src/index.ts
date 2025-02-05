@@ -2,7 +2,9 @@ import {Address, beginCell, Cell, fromNano, SendMode, toNano} from "@ton/core";
 import {THEME, TonConnectUI} from '@tonconnect/ui'
 import {
     AddressInfo,
-    addressToString, base64toHex, equalsAddressLists,
+    addressToString,
+    base64toHex,
+    equalsAddressLists,
     equalsMsgAddresses,
     makeAddressLink,
     validateUserFriendlyAddress
@@ -29,6 +31,9 @@ const toggle = (element: HTMLElement, isVisible: boolean): void => {
 }
 
 const YOU_BADGE: string = ` <div class="badge">It's you</div>`
+
+export const SINGLE_NOMINATOR_POOL_OP_WITHDRAW = 0x1000;
+export const SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS = 0x1001;
 
 // URL STATE
 
@@ -1015,6 +1020,71 @@ const orderTypes: OrderType[] = [
             }
         }
     },
+
+    {
+        name: 'Single nominator pool: Withdraw',
+        fields: {
+            amount: {
+                name: 'TON Amount',
+                type: 'TON'
+            },
+            toAddress: {
+                name: 'Pool Address',
+                type: 'Address'
+            },
+            withdrawAmount: {
+                name: 'Withdraw amount',
+                type: 'TON'
+            },
+        },
+        makeMessage: async (values) => {
+            const body = beginCell()
+                .storeUint(SINGLE_NOMINATOR_POOL_OP_WITHDRAW, 32)
+                .storeUint(1, 64) // query id using only for validator messages
+                .storeCoins(values.withdrawAmount)
+                .endCell();
+
+            return {
+                toAddress: values.toAddress,
+                tonAmount: values.amount,
+                body: body
+            };
+        }
+    },
+
+    {
+        name: 'Single nominator pool: Change Validator Address',
+        fields: {
+            amount: {
+                name: 'TON Amount',
+                type: 'TON'
+            },
+            toAddress: {
+                name: 'Pool Address',
+                type: 'Address'
+            },
+            validatorAddress: {
+                name: 'New Validator Address',
+                type: 'Address'
+            }
+        },
+        makeMessage: async (values) => {
+            const validatorAddress: Address = values.validatorAddress.address;
+
+            const body = beginCell()
+                .storeUint(SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS, 32)
+                .storeUint(1, 64) // query id using only for validator messages
+                .storeAddress(validatorAddress)
+                .endCell();
+
+            return {
+                toAddress: values.toAddress,
+                tonAmount: values.amount,
+                body: body
+            };
+        }
+    },
+
 ]
 
 const getOrderTypesHTML = (): string => {
