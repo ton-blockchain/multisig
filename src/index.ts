@@ -2,7 +2,9 @@ import {Address, beginCell, Cell, fromNano, SendMode, toNano} from "@ton/core";
 import {THEME, TonConnectUI} from '@tonconnect/ui'
 import {
     AddressInfo,
-    addressToString, base64toHex, equalsAddressLists,
+    addressToString,
+    base64toHex,
+    equalsAddressLists,
     equalsMsgAddresses,
     makeAddressLink,
     validateUserFriendlyAddress
@@ -600,7 +602,7 @@ $('#order_approveButton').addEventListener('click', async () => {
 
 // NEW ORDER
 
-type FieldType = 'TON' | 'Jetton' | 'Address' | 'URL' | 'Status' | 'String';
+type FieldType = 'TON' | 'Jetton' | 'Address' | 'URL' | 'Status' | 'String' | 'BOC';
 
 interface ValidatedValue {
     value?: any;
@@ -682,6 +684,13 @@ const validateValue = (fieldName: string, value: string, fieldType: FieldType): 
                 return makeValue(value);
             } else {
                 return makeError('Invalid status. Please use: ' + LOCK_TYPES.join(', '));
+            }
+
+        case 'BOC':
+            try {
+                return makeValue(Cell.fromBase64(value));
+            } catch (error) {
+                return makeError('Invalid BOC');
             }
     }
 }
@@ -1013,6 +1022,30 @@ const orderTypes: OrderType[] = [
                 tonAmount: DEFAULT_AMOUNT,
                 body: JettonMinter.lockWalletMessage(values.userAddress.address, lockTypeToInt(values.newStatus), DEFAULT_INTERNAL_AMOUNT)
             }
+        }
+    },
+    {
+        name: 'Arbitrary order',
+        fields: {
+            order: {
+                name: 'Order BOC (body cell in Base64)',
+                type: 'BOC'
+            },
+            amount: {
+                name: 'TON Amount',
+                type: 'TON'
+            },
+            toAddress: {
+                name: 'Destination Address',
+                type: 'Address'
+            }
+        },
+        makeMessage: async (values): Promise<MakeMessageResult> => {
+            return {
+                toAddress: values.toAddress,
+                tonAmount: values.amount,
+                body: values.order
+            };
         }
     },
 ]

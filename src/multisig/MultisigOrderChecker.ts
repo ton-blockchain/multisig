@@ -229,7 +229,7 @@ export const checkMultisigOrder = async (
         } catch (e) {
         }
 
-        throw new Error('Unsupported action')
+        return `<span class="error">Attention - Unknown action! This order contains arbitrary actions! Dangerous! Don't sign unless you know exactly what you're doing!</span> Raw order data: "<pre>${cell.toBoc().toString('base64')}</pre>"`;
 
     }
 
