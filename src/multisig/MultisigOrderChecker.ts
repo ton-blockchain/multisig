@@ -290,7 +290,7 @@ export const checkMultisigOrder = async (
                 sendModeString.push('Carry all the remaining value of the inbound message');
             }
             if (sendMode & 32) {
-                sendModeString.push('DESTROY ACCOUNT');
+                throw new Error('The order is invalid because its send mode (+32) will delete the multisig');
             }
 
 
@@ -300,6 +300,14 @@ export const checkMultisigOrder = async (
             console.log(messageRelaxed);
 
             const info: CommonMessageInfoRelaxedInternal = messageRelaxed.info as any;
+
+            if (info.ihrFee !== 0n) {
+                throw new Error('The order is invalid: IHR fee greater than 0');
+            }
+
+            if (info.forwardFee !== 0n) {
+                throw new Error('The order is invalid: Forward fee greater than 0');
+            }
 
             const destAddress = await formatAddressAndUrl(info.dest, isTestnet);
             actionString += `<div>Send ${allBalance ? 'ALL BALANCE' : fromNano(info.value.coins)} TON to ${destAddress}</div>`
