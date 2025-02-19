@@ -19,6 +19,10 @@ import {storeStateInit} from "@ton/core/src/types/StateInit";
 import {MyNetworkProvider, sendToIndex} from "./utils/MyNetworkProvider";
 import {Order} from "./multisig/Order";
 import {JettonWallet} from "./jetton/JettonWallet";
+import {
+    SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS,
+    SINGLE_NOMINATOR_POOL_OP_WITHDRAW
+} from "./multisig/Constants";
 
 // UI COMMON
 
@@ -1022,6 +1026,69 @@ const orderTypes: OrderType[] = [
                 tonAmount: DEFAULT_AMOUNT,
                 body: JettonMinter.lockWalletMessage(values.userAddress.address, lockTypeToInt(values.newStatus), DEFAULT_INTERNAL_AMOUNT)
             }
+        }
+    },
+    {
+        name: 'Single nominator pool: Withdraw',
+        fields: {
+            amount: {
+                name: 'TON Amount for gas',
+                type: 'TON'
+            },
+            toAddress: {
+                name: 'Pool Address',
+                type: 'Address'
+            },
+            withdrawAmount: {
+                name: 'Withdraw TON amount',
+                type: 'TON'
+            },
+        },
+        makeMessage: async (values) => {
+            const body = beginCell()
+                .storeUint(SINGLE_NOMINATOR_POOL_OP_WITHDRAW, 32)
+                .storeUint(0, 64) // query id
+                .storeCoins(values.withdrawAmount)
+                .endCell();
+
+            return {
+                toAddress: values.toAddress,
+                tonAmount: values.amount,
+                body: body
+            };
+        }
+    },
+
+    {
+        name: 'Single nominator pool: Change Validator Address',
+        fields: {
+            amount: {
+                name: 'TON Amount for gas',
+                type: 'TON'
+            },
+            toAddress: {
+                name: 'Pool Address',
+                type: 'Address'
+            },
+            validatorAddress: {
+                name: 'New Validator Address',
+                type: 'Address'
+            }
+        },
+        makeMessage: async (values) => {
+            const validatorAddress: Address = values.validatorAddress.address;
+
+            const body = beginCell()
+                .storeUint(SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS, 32)
+                .storeUint(0, 64) // query id
+                .storeAddress(validatorAddress)
+                .endCell();
+
+            return {
+                toAddress: values.toAddress,
+                tonAmount: values.amount,
+                body: body
+            };
         }
     },
     {

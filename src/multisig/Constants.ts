@@ -48,3 +48,7 @@ export abstract class Params {
        time: 48
     }
 }
+
+export const SINGLE_NOMINATOR_POOL_OP_WITHDRAW = 0x1000;
+export const SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS = 0x1001;
+
