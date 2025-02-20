@@ -9,7 +9,7 @@
     "serve": "webpack serve"
   },
   "dependencies": {
-    "@ton/core": "0.56.3",
+    "@ton/core": "0.60.1",
     "@ton/ton": "13.11.1",
     "@ton/crypto": "3.2.0",
     "@tonconnect/ui": "2.0.0"
