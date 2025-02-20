@@ -237,7 +237,7 @@ export const checkMultisigOrder = async (
             if (op === SINGLE_NOMINATOR_POOL_OP_WITHDRAW) {
                 const queryId = slice.loadUint(64);
                 const coins = slice.loadCoins();
-                return `Withdraw ${fromNano(coins)} TON from pool`;
+                return `Withdraw ${fromNano(coins)} TON from single-nominator pool.`;
             }
         } catch (e) {
         }
@@ -251,13 +251,13 @@ export const checkMultisigOrder = async (
                 const validatorAddress = slice.loadAddress();
                 const validatorAddressUrl = await formatAddressAndUrl(validatorAddress, isTestnet)
 
-                return `Change validator to ${validatorAddressUrl}`;
+                return `Change validator to ${validatorAddressUrl} in single-nominator pool.`;
             }
         } catch (e) {
         }
 
 
-        return `<span class="error">Attention - Unknown action! This order contains arbitrary actions! Dangerous! Don't sign unless you know exactly what you're doing!</span> Raw order data: "<pre>${cell.toBoc().toString('base64')}</pre>"`;
+        return `<b><span class="error">ATTENTION - Unknown action! This order contains arbitrary actions! Dangerous! Don't sign unless you know exactly what you're doing!</span></b><br>Raw message body data: "${cell.toBoc().toString('base64')}".`;
 
     }
 
