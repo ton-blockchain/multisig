@@ -26,7 +26,7 @@ export const validateUserFriendlyAddress = (s: string, isTestnet: boolean): stri
 
 export const explorerUrl = (address: string, isTestnet: boolean) => {
     Address.parseFriendly(address); // check validity
-    return (isTestnet ? 'https://testnet.tonviewer.com/' : 'https://tonviewer.com/') + address;
+    return (isTestnet ? 'https://testnet.tonscan.org/' : 'https://tonscan.org/') + address;
 }
 
 export const getAddressFormat = async (address: Address, isTestnet: boolean): Promise<AddressInfo> => {
