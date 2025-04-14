@@ -47,7 +47,7 @@ export function parseOrderData(data: Cell) {
     const threshold = slice.loadUint(8);
     const isExecuted = slice.loadBoolean();
     const signers = cellToArray(slice.loadRef());
-    const approvalsMask = slice.loadUint(1 << 8);
+    const approvalsMask = slice.loadUintBig(1 << 8);
     const approvalsNum = slice.loadUint(8);
     const expirationDate = slice.loadUint(48);
     const order = slice.loadRef();
