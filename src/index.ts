@@ -278,7 +278,7 @@ const renderCurrentMultisigInfo = (): void => {
             if (lastOrder.type === 'pending' && myAddress) {
                 const myIndex = lastOrder.orderInfo.signers.findIndex(signer => signer.address.equals(myAddress));
                 if (myIndex > -1) {
-                    const mask = 1 << myIndex;
+                    const mask = 1n << BigInt(myIndex);
                     const isSigned = lastOrder.orderInfo.approvalsMask & mask;
 
                     text += isSigned ? ' — You approved' : ` — You haven't approved yet`;
@@ -448,7 +448,7 @@ const renderCurrentOrderInfo = (): void => {
     for (let i = 0; i < signers.length; i++) {
         const signer = signers[i];
         const addressString = makeAddressLink(signer);
-        const mask = 1 << i;
+        const mask = 1n << BigInt(i);
         const isSigned = approvalsMask & mask;
         if (myAddress && isSigned && signer.address.equals(myAddress)) {
             isApprovedByMe = true;
