@@ -24,7 +24,7 @@ export interface MultisigOrderInfo {
     orderId: bigint;
     isExecuted: boolean;
     approvalsNum: number;
-    approvalsMask: number;
+    approvalsMask: bigint;
     threshold: number;
     signers: AddressInfo[];
     expiresAt: Date;
@@ -34,10 +34,13 @@ export interface MultisigOrderInfo {
     isMismatchThreshold: boolean;
 }
 
-const checkNumber = (n: number) => {
+const checkNumber = (n: number | bigint) => {
     if (n === null) throw new Error('Invalid number');
     if (n === undefined) throw new Error('Invalid number');
-    if (isNaN(n)) throw new Error('Invalid number');
+
+    if (typeof n !== 'bigint') {
+        if (isNaN(n)) throw new Error('Invalid number');
+    }
     if (n < 0) throw new Error('Invalid number');
 }
 
