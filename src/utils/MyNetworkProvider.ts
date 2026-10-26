@@ -18,7 +18,7 @@ const API_KEY = 'd843619b379084d133f061606beecbf72ae2bf60e0622e808f2a3f631673599
 type IndexQueryPrimitive = string | number | bigint | boolean;
 type IndexQueryValue = IndexQueryPrimitive | IndexQueryPrimitive[];
 
-export const sendToIndex = async (method: string, params: Record<string, IndexQueryValue>, isTestnet: boolean) => {
+export const sendToIndex = async (method: string, params: Record<string, IndexQueryValue>, isTestnet: boolean, signal?: AbortSignal) => {
     const mainnetRpc = 'https://toncenter.com/api/v3/';
     const testnetRpc = 'https://testnet.toncenter.com/api/v3/';
     const rpc = isTestnet ? testnetRpc : mainnetRpc;
@@ -42,8 +42,13 @@ export const sendToIndex = async (method: string, params: Record<string, IndexQu
     const response = await fetch(rpc + method + '?' + query, {
         method: 'GET',
         headers: headers,
+        signal,
     });
+    if (!response.ok) throw new Error(`Toncenter HTTP ${response.status}`);
     const json = await response.json();
+    if (!json || typeof json !== 'object' || Array.isArray(json)) {
+        throw new Error('Invalid Toncenter response');
+    }
     if (json.error) {
         throw new Error(json.error);
     }
