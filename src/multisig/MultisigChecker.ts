@@ -3,7 +3,7 @@ import {
     addressToString,
     assert,
     equalsAddressLists,
-    getAddressFormat
+    getAddressFormats
 } from "../utils/utils";
 import {Address, Cell, Dictionary} from "@ton/core";
 import {endParse, Multisig, parseMultisigData} from "./Multisig";
@@ -224,14 +224,7 @@ export const checkMultisig = async (
     assert(parsedData.threshold > 0, 'threshold <= 0');
     assert(parsedData.threshold <= parsedData.signersCount, 'invalid threshold');
 
-    const signersFormatted = [];
-    for (const signer of signers) {
-        signersFormatted.push(await getAddressFormat(signer, isTestnet));
-    }
-    const proposersFormatted = [];
-    for (const proposer of proposers) {
-        proposersFormatted.push(await getAddressFormat(proposer, isTestnet));
-    }
+    const formatsPromise = getAddressFormats([...signers, ...proposers], isTestnet);
 
     // Get-methods
 
@@ -268,8 +261,8 @@ export const checkMultisig = async (
         address: multisigAddress,
         multisigContract,
         provider,
-        signers: signersFormatted,
-        proposers: proposersFormatted,
+        signers: signers.map(address => ({address, isBounceable: false, isTestOnly: isTestnet, formatResolved: false})),
+        proposers: proposers.map(address => ({address, isBounceable: false, isTestOnly: isTestnet, formatResolved: false})),
         threshold: parsedData.threshold,
         allowArbitraryOrderSeqno: parsedData.allowArbitraryOrderSeqno,
         nextOderSeqno: parsedData.nextOderSeqno,
@@ -454,7 +447,7 @@ export const checkMultisig = async (
             const getOrderInfo = async (lastOrder: LastOrder) => {
                 if (lastOrder.type === 'pending') {
                     try {
-                        const orderInfo = await checkMultisigOrder(lastOrder.order.address, multisigOrderCode, multisigInfo, isTestnet, false);
+                        const orderInfo = await checkMultisigOrder(lastOrder.order.address, multisigOrderCode, multisigInfo, isTestnet, false, false);
                         lastOrder.orderInfo = orderInfo;
                         const isExpired = (new Date()).getTime() > orderInfo.expiresAt.getTime();
                         if (isExpired) {
@@ -506,6 +499,9 @@ export const checkMultisig = async (
         }
     }
 
+    const formatted = await formatsPromise;
+    multisigInfo.signers = formatted.slice(0, signers.length);
+    multisigInfo.proposers = formatted.slice(signers.length);
     multisigInfo.lastOrders = lastOrders;
 
     return multisigInfo;
