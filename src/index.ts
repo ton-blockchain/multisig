@@ -219,7 +219,7 @@ const renderCurrentMultisigInfo = (): void => {
 
     // Render Multisig Info
 
-    $('#multisig_tonBalance').innerText = fromNano(tonBalance) + ' TON';
+    $('#multisig_tonBalance').innerText = fromNano(tonBalance) + ' GRAM';
 
     $('#multisig_threshold').innerText = threshold + '/' + signers.length;
 
@@ -438,7 +438,7 @@ const renderCurrentOrderInfo = (): void => {
 
     const isExpired = (new Date()).getTime() > expiresAt.getTime();
 
-    $('#order_tonBalance').innerText = fromNano(tonBalance) + ' TON';
+    $('#order_tonBalance').innerText = fromNano(tonBalance) + ' GRAM';
 
     let executedTxLink = '';
     if (isExecuted) {
@@ -786,10 +786,10 @@ const checkExistingOrderId = async (orderId: bigint): Promise<ValidatedValue> =>
 
 const orderTypes: OrderType[] = [
     {
-        name: 'Transfer TON',
+        name: 'Transfer GRAM',
         fields: {
             amount: {
-                name: 'TON Amount',
+                name: 'GRAM Amount',
                 type: 'TON'
             },
             toAddress: {
@@ -924,7 +924,7 @@ const orderTypes: OrderType[] = [
                 type: 'Address'
             },
             amount: {
-                name: 'TON Amount',
+                name: 'GRAM Amount',
                 type: 'TON'
             },
         },
@@ -1046,7 +1046,7 @@ const orderTypes: OrderType[] = [
         name: 'Single nominator pool: Withdraw',
         fields: {
             amount: {
-                name: 'TON Amount for gas',
+                name: 'GRAM Amount for gas',
                 type: 'TON'
             },
             toAddress: {
@@ -1054,7 +1054,7 @@ const orderTypes: OrderType[] = [
                 type: 'Address'
             },
             withdrawAmount: {
-                name: 'Withdraw TON amount',
+                name: 'Withdraw GRAM amount',
                 type: 'TON'
             },
         },
@@ -1077,7 +1077,7 @@ const orderTypes: OrderType[] = [
         name: 'Single nominator pool: Change Validator Address',
         fields: {
             amount: {
-                name: 'TON Amount for gas',
+                name: 'GRAM Amount for gas',
                 type: 'TON'
             },
             toAddress: {
@@ -1107,7 +1107,7 @@ const orderTypes: OrderType[] = [
     },
 
     {
-        name: 'Vesting: Send From Vesting (0.1 TON for gas)',
+        name: 'Vesting: Send From Vesting (0.1 GRAM for gas)',
         fields: {
             vestingAddress: {
                 name: 'Vesting Address',
@@ -1118,7 +1118,7 @@ const orderTypes: OrderType[] = [
                 type: 'Address'
             },
             amount: {
-                name: 'TON Amount',
+                name: 'GRAM Amount',
                 type: 'TON'
             },
             comment: { // todo: Add support for base64/hex/boc payload
@@ -1172,7 +1172,7 @@ const orderTypes: OrderType[] = [
                 type: 'BOC'
             },
             amount: {
-                name: 'TON Amount',
+                name: 'GRAM Amount',
                 type: 'TON'
             },
             toAddress: {

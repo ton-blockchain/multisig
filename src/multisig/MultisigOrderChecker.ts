@@ -128,7 +128,7 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             if (slice.remainingBits === 0 && slice.remainingRefs == 0) {
-                return ["Send Toncoins from multisig without comment"];
+                return ["Send Gram from multisig without comment"];
             }
         } catch (e) {
         }
@@ -138,7 +138,7 @@ export const checkMultisigOrder = async (
             const op = slice.loadUint(32);
             if (op == 0) {
                 const text = slice.loadStringTail();
-                return [`Send Toncoins from multisig with comment "${sanitizeHTML(text)}"`];
+                return [`Send Gram from multisig with comment "${sanitizeHTML(text)}"`];
             }
         } catch (e) {
         }
@@ -147,7 +147,7 @@ export const checkMultisigOrder = async (
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseMintMessage(slice);
             assert(parsed.internalMessage.forwardPayload.remainingBits === 0 && parsed.internalMessage.forwardPayload.remainingRefs === 0, 'Mint forward payload not supported');
-            return [`Mint ${parsed.internalMessage.jettonAmount} jettons (in units) to `, parsed.toAddress, `; ${fromNano(parsed.tonAmount)} TON for gas`];
+            return [`Mint ${parsed.internalMessage.jettonAmount} jettons (in units) to `, parsed.toAddress, `; ${fromNano(parsed.tonAmount)} GRAM for gas`];
         } catch (e) {
         }
 
@@ -205,7 +205,7 @@ export const checkMultisigOrder = async (
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseSetStatus);
             const lockType = intToLockType(parsed.action.newStatus);
             return [
-                `Lock jetton wallet of user `, parsed.toAddress, `. Set status "${lockType}" - "${lockTypeToDescription(lockType)}"; ${fromNano(parsed.tonAmount)} TON for gas`
+                `Lock jetton wallet of user `, parsed.toAddress, `. Set status "${lockType}" - "${lockTypeToDescription(lockType)}"; ${fromNano(parsed.tonAmount)} GRAM for gas`
             ];
         } catch (e) {
         }
@@ -216,7 +216,7 @@ export const checkMultisigOrder = async (
             if (parsed.action.customPayload) throw new Error('Force transfer custom payload not supported');
             assert(parsed.action.forwardPayload.remainingBits === 0 && parsed.action.forwardPayload.remainingRefs === 0, 'Force transfer forward payload not supported');
             return [
-                `Force transfer ${parsed.action.jettonAmount} jettons (in units) from user `, parsed.toAddress, ` to `, parsed.action.toAddress, `; ${fromNano(parsed.tonAmount)} TON for gas`
+                `Force transfer ${parsed.action.jettonAmount} jettons (in units) from user `, parsed.toAddress, ` to `, parsed.action.toAddress, `; ${fromNano(parsed.tonAmount)} GRAM for gas`
             ];
         } catch (e) {
         }
@@ -225,7 +225,7 @@ export const checkMultisigOrder = async (
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseBurn);
             if (parsed.action.customPayload) throw new Error('Burn custom payload not supported');
-            return [`Force burn ${parsed.action.jettonAmount} jettons (in units) from user `, parsed.toAddress, `; ${fromNano(parsed.tonAmount)} TON for gas`];
+            return [`Force burn ${parsed.action.jettonAmount} jettons (in units) from user `, parsed.toAddress, `; ${fromNano(parsed.tonAmount)} GRAM for gas`];
         } catch (e) {
         }
 
@@ -236,7 +236,7 @@ export const checkMultisigOrder = async (
             if (op === SINGLE_NOMINATOR_POOL_OP_WITHDRAW) {
                 const queryId = slice.loadUint(64);
                 const coins = slice.loadCoins();
-                return [`Withdraw ${fromNano(coins)} TON from single-nominator pool.`];
+                return [`Withdraw ${fromNano(coins)} GRAM from single-nominator pool.`];
             }
         } catch (e) {
         }
@@ -269,7 +269,7 @@ export const checkMultisigOrder = async (
                 const messageBody = messageRelaxed.body.beginParse();
 
                 const description: ActionDescription = [
-                    `Then send from vesting ${fromNano(messageRelaxedInfo.value.coins)} TON to `, messageRelaxedInfo.dest
+                    `Then send from vesting ${fromNano(messageRelaxedInfo.value.coins)} GRAM to `, messageRelaxedInfo.dest
                 ];
 
                 if (messageBody.remainingBits === 0 && messageBody.remainingRefs === 0) {
@@ -339,7 +339,7 @@ export const checkMultisigOrder = async (
                 throw new Error('The order is invalid: Forward fee greater than 0');
             }
 
-            description.push(`<div>Send ${allBalance ? 'ALL BALANCE' : fromNano(info.value.coins)} TON to `, info.dest, '</div>');
+            description.push(`<div>Send ${allBalance ? 'ALL BALANCE' : fromNano(info.value.coins)} GRAM to `, info.dest, '</div>');
             description.push('<div>', ...parseActionBody(messageRelaxed.body), '</div>');
             if (sendMode) {
                 description.push(`<div>Send mode: ${sendModeString.join(', ')}.</div>`);
