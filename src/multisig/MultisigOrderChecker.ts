@@ -25,7 +25,7 @@ export interface MultisigOrderInfo {
     orderId: bigint;
     isExecuted: boolean;
     approvalsNum: number;
-    approvalsMask: number;
+    approvalsMask: bigint;
     threshold: number;
     signers: AddressInfo[];
     expiresAt: Date;
@@ -68,7 +68,6 @@ export const checkMultisigOrder = async (
     checkNumber(parsedData.threshold);
     assert(parsedData.threshold > 0, "Threshold not positive")
     assert(parsedData.threshold <= parsedData.signers.length, "Invalid threshold")
-    checkNumber(parsedData.approvalsMask);
     checkNumber(parsedData.approvalsNum);
     assert(parsedData.approvalsNum <= parsedData.signers.length, "Invalid approvalsNum ")
     checkNumber(parsedData.expirationDate);
@@ -105,7 +104,7 @@ export const checkMultisigOrder = async (
         assert(getData.threshold === parsedData.threshold, "Invalid threshold");
         assert(getData.executed === parsedData.isExecuted, "Invalid isExecuted");
         assert(equalsAddressLists(getData.signers, parsedData.signers), "Invalid signers");
-        assert(getData._approvals === BigInt(parsedData.approvalsMask), "Invalid approvalsMask");
+        assert(getData._approvals === parsedData.approvalsMask, "Invalid approvalsMask");
         assert(getData.approvals_num === parsedData.approvalsNum, "Invalid approvalsNum");
         assert(getData.expiration_date === BigInt(parsedData.expirationDate), "Invalid expirationDate");
         assert(getData.order.hash().equals(parsedData.order.hash()), "Invalid order");
