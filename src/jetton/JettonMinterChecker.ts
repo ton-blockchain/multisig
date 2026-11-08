@@ -3,7 +3,6 @@ import {
     addressToString,
     assert,
     equalsMsgAddresses,
-    formatAddressAndUrl,
 } from "../utils/utils";
 import {
     Address,

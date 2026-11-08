@@ -3,8 +3,9 @@ import {
     addressToString,
     assert,
     equalsAddressLists,
-    formatAddressAndUrl,
-    getAddressFormat, sanitizeHTML,
+    getAddressFormats,
+    makeAddressLink,
+    sanitizeHTML,
 } from "../utils/utils";
 import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed, CommonMessageInfoRelaxedInternal} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
@@ -34,6 +35,8 @@ export interface MultisigOrderInfo {
     isMismatchThreshold: boolean;
 }
 
+type ActionDescription = (string | Address)[];
+
 const checkNumber = (n: number) => {
     if (n === null) throw new Error('Invalid number');
     if (n === undefined) throw new Error('Invalid number');
@@ -47,6 +50,7 @@ export const checkMultisigOrder = async (
     multisigInfo: MultisigInfo,
     isTestnet: boolean,
     needAdditionalGetMethodChecks: boolean,
+    resolveAddressFormats = true,
 ): Promise<MultisigOrderInfo> => {
 
     // Account State and Data
@@ -68,11 +72,6 @@ export const checkMultisigOrder = async (
     checkNumber(parsedData.approvalsNum);
     assert(parsedData.approvalsNum <= parsedData.signers.length, "Invalid approvalsNum ")
     checkNumber(parsedData.expirationDate);
-
-    const signersFormatted = [];
-    for (const signer of parsedData.signers) {
-        signersFormatted.push(await getAddressFormat(signer, isTestnet));
-    }
 
     // Check in multisig
 
@@ -125,11 +124,11 @@ export const checkMultisigOrder = async (
 
     const actions = Dictionary.loadDirect(Dictionary.Keys.Uint(8), Dictionary.Values.Cell(), parsedData.order);
 
-    const parseActionBody = async (cell: Cell): Promise<string> => {
+    const parseActionBody = (cell: Cell): ActionDescription => {
         try {
             const slice = cell.beginParse();
             if (slice.remainingBits === 0 && slice.remainingRefs == 0) {
-                return "Send Toncoins from multisig without comment";
+                return ["Send Gram from multisig without comment"];
             }
         } catch (e) {
         }
@@ -139,7 +138,7 @@ export const checkMultisigOrder = async (
             const op = slice.loadUint(32);
             if (op == 0) {
                 const text = slice.loadStringTail();
-                return `Send Toncoins from multisig with comment "${sanitizeHTML(text)}"`;
+                return [`Send Gram from multisig with comment "${sanitizeHTML(text)}"`];
             }
         } catch (e) {
         }
@@ -148,37 +147,35 @@ export const checkMultisigOrder = async (
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseMintMessage(slice);
             assert(parsed.internalMessage.forwardPayload.remainingBits === 0 && parsed.internalMessage.forwardPayload.remainingRefs === 0, 'Mint forward payload not supported');
-            const toAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
-            return `Mint ${parsed.internalMessage.jettonAmount} jettons (in units) to ${toAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
+            return [`Mint ${parsed.internalMessage.jettonAmount} jettons (in units) to `, parsed.toAddress, `; ${fromNano(parsed.tonAmount)} GRAM for gas`];
         } catch (e) {
         }
 
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseTopUp(slice);
-            return `Top Up`;
+            return [`Top Up`];
         } catch (e) {
         }
 
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseChangeAdmin(slice);
-            const newAdminAddress = await formatAddressAndUrl(parsed.newAdminAddress, isTestnet)
-            return `Change Admin to ${newAdminAddress}`;
+            return [`Change Admin to `, parsed.newAdminAddress];
         } catch (e) {
         }
 
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseClaimAdmin(slice);
-            return `Claim Admin`;
+            return [`Claim Admin`];
         } catch (e) {
         }
 
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseChangeContent(slice);
-            return `Change metadata URL to "${sanitizeHTML(parsed.newMetadataUrl)}"`;
+            return [`Change metadata URL to "${sanitizeHTML(parsed.newMetadataUrl)}"`];
         } catch (e) {
         }
 
@@ -198,8 +195,7 @@ export const checkMultisigOrder = async (
                 assert(false, 'Transfer arbitrary forward payload not supported');
             }
 
-            const toAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
-            return `Transfer ${parsed.jettonAmount} jettons (in units) from multisig to user ${toAddress} ${comment};`;
+            return [`Transfer ${parsed.jettonAmount} jettons (in units) from multisig to user `, parsed.toAddress, ` ${comment};`];
         } catch (e) {
         }
 
@@ -207,9 +203,10 @@ export const checkMultisigOrder = async (
         try {
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseSetStatus);
-            const userAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
             const lockType = intToLockType(parsed.action.newStatus);
-            return `Lock jetton wallet of user ${userAddress}. Set status "${lockType}" - "${lockTypeToDescription(lockType)}"; ${fromNano(parsed.tonAmount)} TON for gas`;
+            return [
+                `Lock jetton wallet of user `, parsed.toAddress, `. Set status "${lockType}" - "${lockTypeToDescription(lockType)}"; ${fromNano(parsed.tonAmount)} GRAM for gas`
+            ];
         } catch (e) {
         }
 
@@ -218,9 +215,9 @@ export const checkMultisigOrder = async (
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseTransfer);
             if (parsed.action.customPayload) throw new Error('Force transfer custom payload not supported');
             assert(parsed.action.forwardPayload.remainingBits === 0 && parsed.action.forwardPayload.remainingRefs === 0, 'Force transfer forward payload not supported');
-            const fromAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
-            const toAddress = await formatAddressAndUrl(parsed.action.toAddress, isTestnet)
-            return `Force transfer ${parsed.action.jettonAmount} jettons (in units) from user ${fromAddress} to ${toAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
+            return [
+                `Force transfer ${parsed.action.jettonAmount} jettons (in units) from user `, parsed.toAddress, ` to `, parsed.action.toAddress, `; ${fromNano(parsed.tonAmount)} GRAM for gas`
+            ];
         } catch (e) {
         }
 
@@ -228,8 +225,7 @@ export const checkMultisigOrder = async (
             const slice = cell.beginParse();
             const parsed = JettonMinter.parseCallTo(slice, JettonMinter.parseBurn);
             if (parsed.action.customPayload) throw new Error('Burn custom payload not supported');
-            const userAddress = await formatAddressAndUrl(parsed.toAddress, isTestnet)
-            return `Force burn ${parsed.action.jettonAmount} jettons (in units) from user ${userAddress}; ${fromNano(parsed.tonAmount)} TON for gas`;
+            return [`Force burn ${parsed.action.jettonAmount} jettons (in units) from user `, parsed.toAddress, `; ${fromNano(parsed.tonAmount)} GRAM for gas`];
         } catch (e) {
         }
 
@@ -240,7 +236,7 @@ export const checkMultisigOrder = async (
             if (op === SINGLE_NOMINATOR_POOL_OP_WITHDRAW) {
                 const queryId = slice.loadUint(64);
                 const coins = slice.loadCoins();
-                return `Withdraw ${fromNano(coins)} TON from single-nominator pool.`;
+                return [`Withdraw ${fromNano(coins)} GRAM from single-nominator pool.`];
             }
         } catch (e) {
         }
@@ -252,9 +248,7 @@ export const checkMultisigOrder = async (
             if (op === SINGLE_NOMINATOR_POOL_OP_CHANGE_VALIDATOR_ADDRESS) {
                 const queryId = slice.loadUint(64);
                 const validatorAddress = slice.loadAddress();
-                const validatorAddressUrl = await formatAddressAndUrl(validatorAddress, isTestnet)
-
-                return `Change validator to ${validatorAddressUrl} in single-nominator pool.`;
+                return [`Change validator to `, validatorAddress, ` in single-nominator pool.`];
             }
         } catch (e) {
         }
@@ -274,34 +268,34 @@ export const checkMultisigOrder = async (
                 const messageBodyBoc = messageRelaxed.body.toBoc();
                 const messageBody = messageRelaxed.body.beginParse();
 
-                let actionString = 'Then send from vesting '
-                const destAddress = await formatAddressAndUrl(messageRelaxedInfo.dest, isTestnet);
-                actionString += `${fromNano(messageRelaxedInfo.value.coins)} TON to ${destAddress}`
+                const description: ActionDescription = [
+                    `Then send from vesting ${fromNano(messageRelaxedInfo.value.coins)} GRAM to `, messageRelaxedInfo.dest
+                ];
 
                 if (messageBody.remainingBits === 0 && messageBody.remainingRefs === 0) {
                     // no payload
                 } else if (messageBody.remainingBits > 32 && messageBody.loadUint(32) == 0) {
-                    actionString += ' with text "' + sanitizeHTML(messageBody.loadStringTail()) + '".';
+                    description.push(' with text "' + sanitizeHTML(messageBody.loadStringTail()) + '".');
                 } else {
-                    actionString += ` with data: "${messageBodyBoc.toString('base64')}". `
+                    description.push(` with data: "${messageBodyBoc.toString('base64')}". `);
                 }
 
-                return actionString;
+                return description;
             }
         } catch (e) {
             console.error(e);
         }
 
 
-        return `<b><span class="error">ATTENTION - Unknown action! This order contains arbitrary actions! Dangerous! Don't sign unless you know exactly what you're doing!</span></b><br>Raw message body data: "${cell.toBoc().toString('base64')}".`;
+        return [`<b><span class="error">ATTENTION - Unknown action! This order contains arbitrary actions! Dangerous! Don't sign unless you know exactly what you're doing!</span></b><br>Raw message body data: "${cell.toBoc().toString('base64')}".`];
 
     }
 
-    let parsedActions: string[] = [];
+    const parsedActions: ActionDescription[] = [];
 
     const actionsKeys = actions.keys();
     for (let key of actionsKeys) {
-        let actionString = `<div class="label">Action #${key}:</div>`;
+        const description: ActionDescription = [`<div class="label">Action #${key}:</div>`];
 
         const action = actions.get(key);
         const slice = action!.beginParse();
@@ -345,11 +339,10 @@ export const checkMultisigOrder = async (
                 throw new Error('The order is invalid: Forward fee greater than 0');
             }
 
-            const destAddress = await formatAddressAndUrl(info.dest, isTestnet);
-            actionString += `<div>Send ${allBalance ? 'ALL BALANCE' : fromNano(info.value.coins)} TON to ${destAddress}</div>`
-            actionString += `<div>${await parseActionBody(messageRelaxed.body)}</div>`
+            description.push(`<div>Send ${allBalance ? 'ALL BALANCE' : fromNano(info.value.coins)} GRAM to `, info.dest, '</div>');
+            description.push('<div>', ...parseActionBody(messageRelaxed.body), '</div>');
             if (sendMode) {
-                actionString += `<div>Send mode: ${sendModeString.join(', ')}.</div>`
+                description.push(`<div>Send mode: ${sendModeString.join(', ')}.</div>`);
             }
 
         } else if (actionOp === 0x1d0cfbd3) { // update_multisig_params
@@ -362,33 +355,44 @@ export const checkMultisigOrder = async (
             assert(newThreshold > 0, 'Invalid new threshold')
             assert(newThreshold <= newSigners.length, 'Invalid new threshold')
 
-            actionString += `<div>Update Multisig Params</div>`
-            actionString += `<div>New threshold : ${newThreshold.toString()}</div>`
+            description.push(`<div>Update Multisig Params</div>`);
+            description.push(`<div>New threshold : ${newThreshold.toString()}</div>`);
 
-            actionString += '<div>New signers:</div>'
+            description.push('<div>New signers:</div>');
             for (let i = 0; i < newSigners.length; i++) {
                 const signer = newSigners[i];
-                const addressString = await formatAddressAndUrl(signer, isTestnet)
-                actionString += (`<div>#${i + 1} - ${addressString}</div>`);
+                description.push(`<div>#${i + 1} - `, signer, '</div>');
             }
 
-            actionString += '<div>New proposers:</div>'
+            description.push('<div>New proposers:</div>');
             if (newProposers.length > 0) {
                 for (let i = 0; i < newProposers.length; i++) {
                     const proposer = newProposers[i];
-                    const addressString = await formatAddressAndUrl(proposer, isTestnet)
-                    actionString += (`<div>#${i + 1} - ${addressString}</div>`);
+                    description.push(`<div>#${i + 1} - `, proposer, '</div>');
                 }
             } else {
-                actionString += '<div>No proposers</div>'
+                description.push('<div>No proposers</div>');
             }
 
         } else {
             throw new Error('Unknown action')
         }
 
-        parsedActions.push(actionString);
+        parsedActions.push(description);
     }
+
+    const actionAddresses = parsedActions.flatMap(description =>
+        description.filter((part): part is Address => typeof part !== 'string')
+    );
+    const addresses = [...parsedData.signers, ...actionAddresses];
+    const formatted = resolveAddressFormats
+        ? await getAddressFormats(addresses, isTestnet)
+        : addresses.map(address => ({address, isBounceable: false, isTestOnly: isTestnet, formatResolved: false}));
+    const signersFormatted = formatted.slice(0, parsedData.signers.length);
+    const byAddress = new Map(formatted.map(address => [address.address.toRawString(), address]));
+    const renderedActions = parsedActions.map(description => description.map(part =>
+        typeof part === 'string' ? part : makeAddressLink(byAddress.get(part.toRawString())!, isTestnet)
+    ).join(''));
 
     return {
         address: multisigOrderAddress,
@@ -400,7 +404,7 @@ export const checkMultisigOrder = async (
         threshold: parsedData.threshold,
         signers: signersFormatted,
         expiresAt: new Date(parsedData.expirationDate * 1000),
-        actions: parsedActions,
+        actions: renderedActions,
         stateInitMatches,
         isMismatchSigners,
         isMismatchThreshold
