@@ -10,8 +10,8 @@ import {
     setDisplayAddress,
     validateUserFriendlyAddress
 } from "./utils/utils";
-import {checkMultisig, LastOrder, MultisigInfo} from "./multisig/MultisigChecker";
-import {checkMultisigOrder, MultisigOrderInfo} from "./multisig/MultisigOrderChecker";
+import {checkMultisig, LastOrder, MultisigInfo, MultisigSigningConfig} from "./multisig/MultisigChecker";
+import {checkMultisigOrder, getMultisigOrderMismatch, MultisigOrderInfo} from "./multisig/MultisigOrderChecker";
 import {JettonMinter, LOCK_TYPES, LockType, lockTypeToDescription, lockTypeToInt} from "./jetton/JettonMinter";
 import {Multisig} from "./multisig/Multisig";
 import {toUnits} from "./utils/units";
@@ -145,6 +145,7 @@ tonConnectUI.uiOptions = {
 };
 
 const tonConnectUnsubscribe = tonConnectUI.onStatusChange(info => {
+    approvalNotice = undefined;
     if (info === null) { // wallet disconnected
         myAddress = null;
     } else if (info.account) {
@@ -155,7 +156,7 @@ const tonConnectUnsubscribe = tonConnectUI.onStatusChange(info => {
         renderCurrentMultisigInfo();
     }
 
-    if (currentOrderId && currentOrderInfo) {
+    if (currentOrderInfo) {
         renderCurrentOrderInfo();
     }
 });
@@ -198,13 +199,31 @@ let currentMultisigAddress: string | undefined = undefined;
 let currentMultisigInfo: MultisigInfo | undefined = undefined;
 let updateMultisigTimeoutId: any = -1;
 let multisigRevision = 0;
+let multisigSigningReadId = 0;
+let currentMultisigSigningConfig: (MultisigSigningConfig & {readId: number; lastTransactionLt: bigint | undefined}) | undefined;
 
 const clearMultisig = (): void => {
     multisigRevision++;
     currentMultisigAddress = undefined;
     currentMultisigInfo = undefined;
+    currentMultisigSigningConfig = undefined;
     clearTimeout(updateMultisigTimeoutId);
 }
+
+const onMultisigSigningConfigRead = (revision: number) => {
+    const readId = ++multisigSigningReadId;
+    return (config: MultisigSigningConfig, lastTransactionLt: bigint | undefined): void => {
+        if (revision !== multisigRevision) return;
+        const current = currentMultisigSigningConfig;
+        if (current?.lastTransactionLt !== undefined) {
+            if (lastTransactionLt === undefined || lastTransactionLt <= current.lastTransactionLt) return;
+        } else if (lastTransactionLt === undefined && current && readId < current.readId) {
+            return;
+        }
+        currentMultisigSigningConfig = {...config, readId, lastTransactionLt};
+        renderOrderMismatch();
+    };
+};
 
 const renderCurrentMultisigInfo = (): void => {
     const {
@@ -343,7 +362,8 @@ const updateMultisig = async (multisigAddress: string, isFirst: boolean, revisio
     try {
         // Load
 
-        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE, IS_TESTNET, 'aggregate', false);
+        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE,
+            IS_TESTNET, 'aggregate', false, {onSigningConfigRead: onMultisigSigningConfigRead(revision)});
 
         // Render if still relevant
 
@@ -406,11 +426,15 @@ let currentOrderId: bigint | undefined = undefined;
 let currentOrderInfo: MultisigOrderInfo | undefined = undefined;
 let updateOrderTimeoutId: any = -1;
 let orderRevision = 0;
+let checkingApproval = false;
+let approvalNotice: 'changed' | 'execution' | undefined;
 
 const clearOrder = (): void => {
     orderRevision++;
     currentOrderId = undefined;
     currentOrderInfo = undefined;
+    checkingApproval = false;
+    approvalNotice = undefined;
     clearTimeout(updateOrderTimeoutId);
 }
 const updateApproveButton = (isApproving: boolean, isLastApprove: boolean): void => {
@@ -419,8 +443,20 @@ const updateApproveButton = (isApproving: boolean, isLastApprove: boolean): void
     } else {
         $('#order_approveButton').innerText = isApproving ? 'Approving..' : 'Approve';
     }
-    ($('#order_approveButton') as HTMLButtonElement).disabled = isApproving;
+    ($('#order_approveButton') as HTMLButtonElement).disabled = isApproving || checkingApproval;
 }
+
+const renderOrderMismatch = (): void => {
+    if (!currentOrderInfo || !currentMultisigSigningConfig) return;
+    const {threshold, signers, isExecuted} = currentOrderInfo;
+    const {isMismatchThreshold, isMismatchSigners} = getMultisigOrderMismatch(currentMultisigSigningConfig, {
+        threshold,
+        signers: signers.map(signer => signer.address),
+        isExecuted,
+    });
+    $('#order_thresholdError').innerText = isMismatchThreshold ? 'Multisig threshold do not match order threshold' : '';
+    $('#order_signersError').innerText = isMismatchSigners ? 'Multisig signers do not match order signers' : '';
+};
 
 const renderCurrentOrderInfo = (): void => {
     const {
@@ -432,8 +468,6 @@ const renderCurrentOrderInfo = (): void => {
         threshold,
         signers,
         expiresAt,
-        isMismatchThreshold,
-        isMismatchSigners
     } = currentOrderInfo;
 
     const isExpired = (new Date()).getTime() > expiresAt.getTime();
@@ -468,8 +502,7 @@ const renderCurrentOrderInfo = (): void => {
     }
     $('#order_signersList').innerHTML = signersHTML;
 
-    $('#order_thresholdError').innerText = isMismatchThreshold ? 'Multisig threshold do not match order threshold' : '';
-    $('#order_signersError').innerText = isMismatchSigners ? 'Multisig signers do not match order signers' : '';
+    renderOrderMismatch();
 
     let actionsHTML = '';
     for (const action of actions) {
@@ -492,10 +525,22 @@ const renderCurrentOrderInfo = (): void => {
         localStorage.removeItem(currentMultisigAddress + '_' + currentOrderId + '_approve');
     }
 
-    updateApproveButton(!!approvingTime, approvalsNum === threshold - 1);
+    const canApprove = !isExecuted && !isExpired && !isApprovedByMe;
+    const isLastApprove = approvalsNum === threshold - 1;
+    const notice = $('#order_approvalNotice');
+    if (approvalNotice === 'changed') {
+        notice.innerText = 'The order has changed. Review the updated details before continuing.';
+    } else if (approvalNotice === 'execution' && canApprove && isLastApprove &&
+        signers.some(signer => equalsMsgAddresses(signer.address, myAddress))) {
+        notice.innerText = 'The order has changed. Your approval will now trigger execution.';
+    } else {
+        notice.innerText = '';
+    }
+    toggle(notice, Boolean(notice.innerText));
 
-    toggle($('#order_approveButton'), !isExecuted && !isExpired && !isApprovedByMe);
-    toggle($('#order_approveNote'), !isExecuted && !isExpired && !isApprovedByMe);
+    updateApproveButton(!!approvingTime, isLastApprove);
+    toggle($('#order_approveButton'), canApprove);
+    toggle($('#order_approveNote'), canApprove);
 }
 
 const updateOrder = async (orderAddress: AddressInfo, orderId: bigint, isFirstTime: boolean, revision = orderRevision, parentRevision = multisigRevision): Promise<void> => {
@@ -568,23 +613,87 @@ $('#order_backButton').addEventListener('click', () => {
 });
 
 $('#order_approveButton').addEventListener('click', async () => {
-    if (!currentMultisigAddress) throw new Error('approve !currentMultisigAddress');
-    if (!currentOrderInfo) throw new Error('approve !currentOrderInfo');
+    const button = $('#order_approveButton') as HTMLButtonElement;
+    if (!currentMultisigAddress || !currentOrderInfo || button.disabled) return;
 
     const multisigAddress = currentMultisigAddress;
-    const orderInfo = currentOrderInfo;
+    const reviewed = currentOrderInfo;
+    const wallet = tonConnectUI.account;
 
-    if (!myAddress) {
+    if (!wallet) {
         alert('Please connect wallet');
         return;
     }
 
-    const mySignerIndex = orderInfo.signers.findIndex(address => address.address.equals(myAddress));
+    const walletAddress = Address.parseRaw(wallet.address);
+    const mySignerIndex = reviewed.signers.findIndex(signer => signer.address.equals(walletAddress));
 
     if (mySignerIndex == -1) {
         alert('You are not signer');
         return;
     }
+
+    const revision = ++orderRevision;
+    const parentRevision = multisigRevision;
+    const isCurrent = () => orderRevision === revision && multisigRevision === parentRevision;
+    clearTimeout(updateOrderTimeoutId);
+    checkingApproval = true;
+    button.disabled = true;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15_000);
+    let orderInfo: MultisigOrderInfo;
+    let isExecution: boolean;
+    try {
+        const parent = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE,
+            IS_TESTNET, 'none', false, {
+                resolveAddressFormats: false,
+                signal: controller.signal,
+                onSigningConfigRead: onMultisigSigningConfigRead(parentRevision),
+            });
+        if (!isCurrent() || tonConnectUI.account !== wallet) return;
+
+        const fresh = await checkMultisigOrder(reviewed.address, MULTISIG_ORDER_CODE, parent,
+            IS_TESTNET, false, false, controller.signal);
+        if (!isCurrent() || tonConnectUI.account !== wallet) return;
+        const orderChanged = fresh.orderHash !== reviewed.orderHash || fresh.expirationDate !== reviewed.expirationDate ||
+            fresh.threshold !== reviewed.threshold ||
+            !equalsAddressLists(fresh.signers.map(s => s.address), reviewed.signers.map(s => s.address));
+
+        orderInfo = orderChanged ? fresh : {...fresh, signers: reviewed.signers, actions: reviewed.actions};
+        currentOrderInfo = orderInfo;
+        toggle($('#order_error'), false);
+
+        if (orderChanged) {
+            approvalNotice = 'changed';
+            return;
+        }
+        if (orderInfo.isExecuted || Date.now() > orderInfo.expirationDate * 1000 ||
+            (orderInfo.approvalsMask & (1n << BigInt(mySignerIndex)))) return;
+
+        isExecution = orderInfo.approvalsNum === orderInfo.threshold - 1;
+        if (isExecution && reviewed.approvalsNum !== reviewed.threshold - 1) {
+            approvalNotice = 'execution';
+            return;
+        }
+        approvalNotice = undefined;
+    } catch (error) {
+        console.error(error);
+        if (isCurrent()) {
+            $('#order_error').innerText = error.message;
+            toggle($('#order_error'), true);
+        }
+        return;
+    } finally {
+        clearTimeout(timeout);
+        if (isCurrent()) {
+            checkingApproval = false;
+            renderCurrentOrderInfo();
+            updateOrderTimeoutId = setTimeout(() => updateOrder(reviewed.address, reviewed.orderId, false, revision, parentRevision), 5000);
+        }
+    }
+
+    if (button.disabled) return;
 
     const orderAddressString = addressToString(orderInfo.address);
     const amount = DEFAULT_AMOUNT.toString();
@@ -603,7 +712,7 @@ $('#order_approveButton').addEventListener('click', async () => {
         ]
     }
 
-    updateApproveButton(true, orderInfo.approvalsNum === orderInfo.threshold - 1);
+    updateApproveButton(true, isExecution);
     localStorage.setItem(multisigAddress + '_' + orderInfo.orderId + '_approve', Date.now().toString());
 
     try {
@@ -612,8 +721,8 @@ $('#order_approveButton').addEventListener('click', async () => {
         console.error(e);
         localStorage.removeItem(multisigAddress + '_' + orderInfo.orderId + '_approve');
 
-        if (currentMultisigAddress === multisigAddress && currentOrderId === orderInfo.orderId) {
-            updateApproveButton(false, orderInfo.approvalsNum === orderInfo.threshold - 1);
+        if (currentMultisigAddress === multisigAddress && currentOrderId === orderInfo.orderId && currentOrderInfo) {
+            renderCurrentOrderInfo();
         }
     }
 });

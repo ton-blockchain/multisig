@@ -10,7 +10,7 @@ import {
 import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed, CommonMessageInfoRelaxedInternal} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
-import {MultisigInfo} from "./MultisigChecker";
+import type {MultisigInfo, MultisigSigningConfig} from "./MultisigChecker";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
 import {intToLockType, JettonMinter, lockTypeToDescription} from "../jetton/JettonMinter";
 import {
@@ -29,11 +29,18 @@ export interface MultisigOrderInfo {
     threshold: number;
     signers: AddressInfo[];
     expiresAt: Date;
+    expirationDate: number;
+    orderHash: string;
     actions: string[];
     stateInitMatches: boolean;
     isMismatchSigners: boolean;
     isMismatchThreshold: boolean;
 }
+
+export const getMultisigOrderMismatch = (parent: MultisigSigningConfig, order: MultisigSigningConfig & {isExecuted: boolean}) => ({
+    isMismatchThreshold: !order.isExecuted && parent.threshold > order.threshold,
+    isMismatchSigners: !order.isExecuted && !equalsAddressLists(parent.signers, order.signers),
+});
 
 type ActionDescription = (string | Address)[];
 
@@ -51,11 +58,12 @@ export const checkMultisigOrder = async (
     isTestnet: boolean,
     needAdditionalGetMethodChecks: boolean,
     resolveAddressFormats = true,
+    signal?: AbortSignal,
 ): Promise<MultisigOrderInfo> => {
 
     // Account State and Data
 
-    const result = await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet);
+    const result = await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet, signal);
     assert(result.status === 'active', "Contract not active. If you have just created an order it should appear within ~30 seconds.");
 
     assert(Cell.fromBase64(result.code).equals(multisigOrderCode), 'The contract code DOES NOT match the multisig-order code from this repository');
@@ -84,13 +92,10 @@ export const checkMultisigOrder = async (
 
     assert(multisigOrderToCheck.address.equals(multisigOrderAddress.address), "Fake multisig-order");
 
-    let isMismatchSigners = false;
-    let isMismatchThreshold = false;
-
-    if (!parsedData.isExecuted) {
-        isMismatchThreshold = multisigInfo.threshold > parsedData.threshold;
-        isMismatchSigners = !equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers);
-    }
+    const mismatch = getMultisigOrderMismatch({
+        threshold: multisigInfo.threshold,
+        signers: multisigInfo.signers.map(signer => signer.address),
+    }, parsedData);
 
     if (needAdditionalGetMethodChecks) {
         // Get-methods
@@ -403,10 +408,11 @@ export const checkMultisigOrder = async (
         threshold: parsedData.threshold,
         signers: signersFormatted,
         expiresAt: new Date(parsedData.expirationDate * 1000),
+        expirationDate: parsedData.expirationDate,
+        orderHash: parsedData.order.hash().toString('hex'),
         actions: renderedActions,
         stateInitMatches,
-        isMismatchSigners,
-        isMismatchThreshold
+        ...mismatch,
     }
 
 }

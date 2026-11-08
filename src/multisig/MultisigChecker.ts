@@ -192,6 +192,11 @@ export interface MultisigInfo {
     stateInitMatches: boolean;
 }
 
+export interface MultisigSigningConfig {
+    threshold: number;
+    signers: Address[];
+}
+
 export const checkMultisig = async (
     multisigAddress: AddressInfo,
     multisigCode: Cell,
@@ -199,11 +204,16 @@ export const checkMultisig = async (
     isTestnet: boolean,
     lastOrdersMode: 'none' | 'history' | 'aggregate',
     needAdditionalGetMethodChecks: boolean,
+    options: {
+        resolveAddressFormats?: boolean;
+        signal?: AbortSignal;
+        onSigningConfigRead?: (config: MultisigSigningConfig, lastTransactionLt: bigint | undefined) => void;
+    } = {},
 ): Promise<MultisigInfo> => {
 
     // Account State and Data
 
-    const result = await sendToIndex('account', {address: addressToString(multisigAddress)}, isTestnet);
+    const result = await sendToIndex('account', {address: addressToString(multisigAddress)}, isTestnet, options.signal);
     assert(result.status === 'active', "Contract not active. If you have just created a multisig it should appear within ~30 seconds.");
 
     assert(Cell.fromBase64(result.code).equals(multisigCode), 'The contract code DOES NOT match the multisig code from this repository');
@@ -224,7 +234,15 @@ export const checkMultisig = async (
     assert(parsedData.threshold > 0, 'threshold <= 0');
     assert(parsedData.threshold <= parsedData.signersCount, 'invalid threshold');
 
-    const formatsPromise = getAddressFormats([...signers, ...proposers], isTestnet);
+    if (options.onSigningConfigRead) {
+        const rawLt = result.last_transaction_lt;
+        const lastTransactionLt = typeof rawLt === 'string' && /^\d+$/.test(rawLt) ? BigInt(rawLt) : undefined;
+        options.onSigningConfigRead({threshold: parsedData.threshold, signers}, lastTransactionLt);
+    }
+
+    const formatsPromise = options.resolveAddressFormats !== false
+        ? getAddressFormats([...signers, ...proposers], isTestnet)
+        : undefined;
 
     // Get-methods
 
@@ -499,9 +517,11 @@ export const checkMultisig = async (
         }
     }
 
-    const formatted = await formatsPromise;
-    multisigInfo.signers = formatted.slice(0, signers.length);
-    multisigInfo.proposers = formatted.slice(signers.length);
+    if (formatsPromise) {
+        const formatted = await formatsPromise;
+        multisigInfo.signers = formatted.slice(0, signers.length);
+        multisigInfo.proposers = formatted.slice(signers.length);
+    }
     multisigInfo.lastOrders = lastOrders;
 
     return multisigInfo;
