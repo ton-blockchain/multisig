@@ -6,11 +6,15 @@ import {
     base64toHex,
     equalsAddressLists,
     equalsMsgAddresses,
+    getAddressFormats,
     makeAddressLink,
     setDisplayAddress,
     validateUserFriendlyAddress
 } from "./utils/utils";
-import {checkMultisig, LastOrder, MultisigInfo, MultisigSigningConfig} from "./multisig/MultisigChecker";
+import {
+    checkMultisig, LastOrder, mergeMultisigOrderEvents, MultisigExecutionResult, MultisigHistoryCursor, MultisigInfo,
+    MultisigOrderEvents, MultisigSigningConfig, readMultisigExecutionResults, readMultisigHistoryPage, readMultisigOrders
+} from "./multisig/MultisigChecker";
 import {checkMultisigOrder, getMultisigOrderMismatch, MultisigOrderInfo} from "./multisig/MultisigOrderChecker";
 import {JettonMinter, LOCK_TYPES, LockType, lockTypeToDescription, lockTypeToInt} from "./jetton/JettonMinter";
 import {Multisig} from "./multisig/Multisig";
@@ -197,16 +201,37 @@ const MULTISIG_ORDER_CODE = Cell.fromBase64('te6cckEBAQEAIwAIQgJjBagGHIVsLM8F3LD
 
 let currentMultisigAddress: string | undefined = undefined;
 let currentMultisigInfo: MultisigInfo | undefined = undefined;
+interface MultisigHistory {
+    controller: AbortController;
+    head?: bigint;
+    older?: MultisigHistoryCursor | null;
+    archiveEndLt?: bigint;
+    deltaIncomplete?: boolean;
+    loadingOlder: boolean;
+    updates: Promise<void>;
+    events: Record<string, MultisigOrderEvents>;
+    rows: Record<string, LastOrder>;
+    traceQueue: Map<string, bigint>;
+}
+let currentMultisigHistory: MultisigHistory | undefined;
 let updateMultisigTimeoutId: any = -1;
 let multisigRevision = 0;
 let multisigSigningReadId = 0;
 let currentMultisigSigningConfig: (MultisigSigningConfig & {readId: number; lastTransactionLt: bigint | undefined}) | undefined;
+const TRACE_BATCH_SIZE = 50;
+const TRACE_BATCH_TIMEOUT_MS = 15_000;
+const multisigExecutionResults = new Map<string, MultisigExecutionResult>();
+let multisigTraceRequest: AbortController | undefined;
 
 const clearMultisig = (): void => {
     multisigRevision++;
     currentMultisigAddress = undefined;
     currentMultisigInfo = undefined;
     currentMultisigSigningConfig = undefined;
+    currentMultisigHistory?.controller.abort();
+    currentMultisigHistory = undefined;
+    multisigTraceRequest?.abort();
+    multisigTraceRequest = undefined;
     clearTimeout(updateMultisigTimeoutId);
 }
 
@@ -221,8 +246,16 @@ const onMultisigSigningConfigRead = (revision: number) => {
             return;
         }
         currentMultisigSigningConfig = {...config, readId, lastTransactionLt};
+        const history = currentMultisigHistory;
+        if (history && (lastTransactionLt ?? 0n) > (history.head ?? 0n)) history.deltaIncomplete = true;
         renderOrderMismatch();
     };
+};
+
+const formatMultisigExecutionStatus = (status: LastOrder['executionStatus']): string => {
+    if (status === 'checking') return ' — Checking transaction status…';
+    if (status === 'failed') return ' — Execution error';
+    return '';
 };
 
 const renderCurrentMultisigInfo = (): void => {
@@ -269,7 +302,6 @@ const renderCurrentMultisigInfo = (): void => {
     }
 
     // Render Last Orders
-
     const formatOrderType = (lastOrder: LastOrder): string => {
         switch (lastOrder.type) {
             case 'new':
@@ -285,11 +317,11 @@ const renderCurrentMultisigInfo = (): void => {
     }
 
     const formatOrder = (lastOrder: LastOrder): string => {
+        if (lastOrder.executionStatus === 'failed') {
+            return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}"><span class="orderListItem_title">Failed Order #${lastOrder.order.id}</span><span class="orderListItem_executionStatus">${formatMultisigExecutionStatus('failed')}</span> — <a href="${transactionExplorerUrl(lastOrder.transactionHash)}" target="_blank">Tx Link</a></div>`;
+        }
         if (lastOrder.errorMessage) {
             if (lastOrder.errorMessage.startsWith('Contract not active')) return ``;
-            if (lastOrder.errorMessage.startsWith('Failed')) {
-                return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}"><span class="orderListItem_title">Failed Order #${lastOrder.order.id}</span> — Execution error — <a href="${transactionExplorerUrl(lastOrder.transactionHash)}" target="_blank">Tx Link</a></div>`;
-            }
             return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}"><span class="orderListItem_title">Invalid Order #${lastOrder.order.id}</span> — ${lastOrder.errorMessage}</div>`;
         } else {
             const isExpired = lastOrder.orderInfo ? (new Date()).getTime() > lastOrder.orderInfo.expiresAt.getTime() : false;
@@ -311,11 +343,7 @@ const renderCurrentMultisigInfo = (): void => {
             }
 
             if (lastOrder.type === 'executed') {
-                if (lastOrder.executionStatus === 'checking') {
-                    text += ` — Checking transaction status… — <a href="${transactionExplorerUrl(lastOrder.transactionHash)}" target="_blank">Tx Link</a>`;
-                } else {
-                    text += ` — <a href="${transactionExplorerUrl(lastOrder.transactionHash)}" target="_blank">Tx Link</a>`;
-                }
+                text += `<span class="orderListItem_executionStatus">${formatMultisigExecutionStatus(lastOrder.executionStatus)}</span> — <a href="${transactionExplorerUrl(lastOrder.transactionHash)}" target="_blank">Tx Link</a>`;
             }
 
             return `<div class="multisig_lastOrder" order-id="${lastOrder.order.id}" order-address="${addressToString(lastOrder.order.address)}">${text}</div>`;
@@ -355,24 +383,254 @@ const renderCurrentMultisigInfo = (): void => {
     });
 }
 
-const updateMultisig = async (multisigAddress: string, isFirst: boolean, revision = multisigRevision): Promise<void> => {
+const applyMultisigExecutionResults = (lastOrders: LastOrder[]): LastOrder[] => {
+    const updated: LastOrder[] = [];
+    for (const order of lastOrders) {
+        if (order.executionStatus !== 'checking') continue;
+        const result = multisigExecutionResults.get(order.transactionHash);
+        if (!result) continue;
+        order.executionStatus = result;
+        updated.push(order);
+    }
+    return updated;
+};
+
+const updateMultisigExecutionResults = async (
+    history: MultisigHistory, orders: LastOrder[], isCurrent: () => boolean,
+): Promise<void> => {
+    for (const order of orders) {
+        if (order.executionStatus === 'checking') history.traceQueue.set(order.transactionHash, order.lt);
+    }
+    if (multisigTraceRequest) return;
+    const attempted = new Set<string>();
+    for (; history.traceQueue.size && isCurrent(); ) {
+        const hashes = [...history.traceQueue]
+            .filter(([hash]) => !attempted.has(hash) && !multisigExecutionResults.has(hash))
+            .sort((a, b) => Number(b[1] - a[1]))
+            .map(([hash]) => hash);
+        history.traceQueue.clear();
+        for (const hash of hashes) attempted.add(hash);
+
+        for (let offset = 0; offset < hashes.length && isCurrent(); offset += TRACE_BATCH_SIZE) {
+            const controller = new AbortController();
+            multisigTraceRequest = controller;
+            const timeout = setTimeout(() => controller.abort(), TRACE_BATCH_TIMEOUT_MS);
+            try {
+                const batch = hashes.slice(offset, offset + TRACE_BATCH_SIZE);
+                const results = await readMultisigExecutionResults(batch, IS_TESTNET, controller.signal);
+                if (!isCurrent()) return;
+
+                for (const [hash, result] of results) multisigExecutionResults.set(hash, result);
+                for (const order of applyMultisigExecutionResults(currentMultisigInfo.lastOrders)) {
+                    const row = $(`#mainScreen_ordersList .multisig_lastOrder[order-id="${order.order.id}"]`);
+                    const status = row?.querySelector('.orderListItem_executionStatus');
+                    if (status) status.textContent = formatMultisigExecutionStatus(order.executionStatus);
+                    const title = row?.querySelector('.orderListItem_title');
+                    if (title && order.executionStatus === 'failed') title.textContent = `Failed Order #${order.order.id}`;
+                }
+            } catch (error) {
+                if (isCurrent()) console.error('Failed to load transaction trace batch', error);
+            } finally {
+                clearTimeout(timeout);
+                if (multisigTraceRequest === controller) multisigTraceRequest = undefined;
+            }
+        }
+    }
+};
+
+const queueMultisigOrders = (history: MultisigHistory, update: () => void | Promise<void>) => {
+    const result = history.updates.then(update);
+    history.updates = result.then(() => undefined, () => undefined);
+    return result;
+};
+
+const preserveOrderOnReadFailure = (order: LastOrder, previous?: LastOrder): LastOrder =>
+    order.accountReadFailed && previous ? {...previous, accountReadFailed: true} : order;
+
+const publishMultisigOrders = (
+    info: MultisigInfo, history: MultisigHistory, orders: LastOrder[], isCurrent: () => boolean, olderPage = false,
+): void => {
+    const traceOrders = olderPage ? orders.filter(order => {
+        const previous = history.rows[order.order.id.toString()];
+        return !previous?.executionStatus || previous.transactionHash !== order.transactionHash;
+    }) : orders;
+    for (const order of orders) history.rows[order.order.id.toString()] = order;
+    const now = Date.now();
+    for (const [id, row] of Object.entries(history.rows)) {
+        if (row.type === 'pending' && row.orderInfo?.expiresAt.getTime() < now) {
+            history.rows[id] = {...row, type: 'executed'};
+        }
+    }
+    info.lastOrders = Object.values(history.rows).sort((a, b) => {
+        if (a.type === b.type) return b.utime - a.utime;
+        return a.type === 'pending' ? -1 : 1;
+    });
+    currentMultisigInfo = info;
+    applyMultisigExecutionResults(info.lastOrders);
+    renderCurrentMultisigInfo();
+    void updateMultisigExecutionResults(history, olderPage ? traceOrders : info.lastOrders, isCurrent);
+};
+
+const isArchivedAccountUnavailable = (history: MultisigHistory, id: string): boolean => {
+    const row = history.rows[id];
+    return (row?.accountInactive === true || row?.accountReadFailed === true)
+        && history.archiveEndLt !== undefined && history.events[id].latest.lt <= history.archiveEndLt;
+};
+
+const sameOrderConfig = (a: MultisigInfo, b: MultisigInfo): boolean =>
+    a.threshold === b.threshold && equalsAddressLists(a.signers.map(signer => signer.address), b.signers.map(signer => signer.address));
+
+const refreshArchivedUnavailableOrders = async (
+    history: MultisigHistory, batchEndpoint: {available: boolean}, isCurrent: () => boolean,
+): Promise<void> => {
+    if (history.archiveEndLt === undefined) return;
+    const now = Date.now();
+    const entries = Object.entries(history.events).filter(([id, {latest}]) => {
+        const row = history.rows[id];
+        return isArchivedAccountUnavailable(history, id) && !(row.orderInfo?.expiresAt.getTime() < now)
+            && (row.accountReadFailed || latest.creationExpiresAt * 1000 >= now);
+    });
+    if (!entries.length) return;
+    const info = currentMultisigInfo;
+    const previous = new Map(entries.map(([id]) => [id, history.rows[id]]));
+    const events = new Map(entries);
+    const orders = await readMultisigOrders([...events.values()], info, MULTISIG_ORDER_CODE, IS_TESTNET, history.controller.signal,
+        {previousRows: previous, batchEndpoint});
+    await queueMultisigOrders(history, () => {
+        if (!isCurrent() || !sameOrderConfig(info, currentMultisigInfo)) return;
+        const updated = orders.filter(order => {
+            const id = order.order.id.toString();
+            const prior = previous.get(id);
+            return order !== prior && history.rows[id] === prior && history.events[id] === events.get(id);
+        });
+        if (updated.length) publishMultisigOrders(currentMultisigInfo, history, updated, isCurrent, true);
+    });
+};
+
+const loadOlderMultisigOrders = async (
+    address: AddressInfo, history: MultisigHistory, isCurrent: () => boolean,
+): Promise<void> => {
+    if (history.loadingOlder || (!history.older && history.archiveEndLt === undefined)) return;
+    history.loadingOlder = true;
+    const batchEndpoint = {available: true};
+    try {
+        await refreshArchivedUnavailableOrders(history, batchEndpoint, isCurrent);
+        for (let cursor = history.older; cursor && isCurrent(); cursor = history.older) {
+            const page = await readMultisigHistoryPage(address, MULTISIG_ORDER_CODE, IS_TESTNET, history.controller.signal, cursor);
+            for (let published = false; !published && isCurrent(); ) {
+                const info = currentMultisigInfo;
+                const changed = mergeMultisigOrderEvents(history.events, page.events);
+                const previous = new Map(Object.keys(changed).map(id => [id, {entry: history.events[id], row: history.rows[id]}]));
+                const toRead = Object.entries(changed).filter(([id, {latest}]) => {
+                    const prior = previous.get(id);
+                    return prior?.entry?.latest !== latest || !prior.row?.orderInfo || prior.row.orderInfo.isExecuted;
+                });
+                const orders = await readMultisigOrders(toRead.map(([, entry]) => entry), info, MULTISIG_ORDER_CODE, IS_TESTNET, history.controller.signal,
+                    {batchEndpoint});
+                await queueMultisigOrders(history, () => {
+                    if (!isCurrent()) return;
+                    const latest = currentMultisigInfo;
+                    if ([...previous].some(([id, {entry}]) => history.events[id] !== entry)
+                        || (orders.some(order => order.orderInfo) && !sameOrderConfig(info, latest))) return;
+                    Object.assign(history.events, changed);
+                    history.older = page.next;
+                    const currentOrders = orders.filter(order => {
+                        const id = order.order.id.toString();
+                        return history.rows[id] === previous.get(id)?.row;
+                    }).map(order => preserveOrderOnReadFailure(order, previous.get(order.order.id.toString())?.row));
+                    if (currentOrders.length) publishMultisigOrders(latest, history, currentOrders, isCurrent, true);
+                    if (!history.older) fillSuggestedOrderId();
+                    published = true;
+                });
+            }
+        }
+    } catch (error) {
+        if (isCurrent()) console.error('Failed to load older multisig transactions', error);
+    } finally {
+        history.loadingOlder = false;
+    }
+};
+
+const updateMultisig = async (multisigAddress: string, isFirst: boolean, revision: number, queuedOrderId?: bigint): Promise<void> => {
     const isCurrent = () => multisigRevision === revision && currentMultisigAddress === multisigAddress;
     if (!isCurrent()) return;
-    void setDisplayAddress($('#mulisig_address'), Address.parseFriendly(multisigAddress).address, IS_TESTNET, isCurrent);
+    const address = Address.parseFriendly(multisigAddress);
+    const history = currentMultisigHistory;
+    const signal = history.controller.signal;
+    void setDisplayAddress($('#mulisig_address'), address.address, IS_TESTNET, isCurrent);
     try {
-        // Load
-
-        const multisigInfo = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE,
-            IS_TESTNET, 'aggregate', false, {onSigningConfigRead: onMultisigSigningConfigRead(revision)});
-
-        // Render if still relevant
+        const multisigInfo = await checkMultisig(address, MULTISIG_CODE, IS_TESTNET, false,
+            {signal, onSigningConfigRead: onMultisigSigningConfigRead(revision)});
 
         if (!isCurrent()) return;
-        currentMultisigInfo = multisigInfo;
+        const signerCount = multisigInfo.signers.length;
+        const formats = getAddressFormats([...multisigInfo.signers, ...multisigInfo.proposers].map(a => a.address), IS_TESTNET);
+        let events: LastOrder[] = [];
+        let head: bigint | undefined;
+        let older: MultisigHistoryCursor | null;
+        let refreshFailed = false;
+        try {
+            const firstPage = await readMultisigHistoryPage(address, MULTISIG_ORDER_CODE, IS_TESTNET, signal, undefined, history.head);
+            events = firstPage.events;
+            head = firstPage.head;
+            older = firstPage.next;
+            if (head !== undefined && head > (history.head ?? 0n)) history.deltaIncomplete = true;
+            if (history.head !== undefined) {
+                for (let cursor = firstPage.next; cursor && isCurrent(); ) {
+                    const page = await readMultisigHistoryPage(address, MULTISIG_ORDER_CODE, IS_TESTNET, signal, cursor, history.head);
+                    events.push(...page.events);
+                    cursor = page.next;
+                }
+            }
+        } catch (error) {
+            if (!isCurrent()) return;
+            if (!currentMultisigInfo) throw error;
+            console.error('Failed to load newer multisig transactions', error);
+            refreshFailed = true;
+            history.deltaIncomplete = true;
+            events = [];
+            head = undefined;
+        }
 
-        renderCurrentMultisigInfo();
-        toggle($('#multisig_content'), true);
-        toggle($('#multisig_error'), false);
+        await queueMultisigOrders(history, async () => {
+            if (!isCurrent()) return;
+            const changed = mergeMultisigOrderEvents(history.events, events);
+            const all = {...history.events, ...changed};
+            const now = Date.now();
+            const toRead = Object.values(all).filter(({latest}) => {
+                const id = latest.order.id.toString();
+                const previous = history.rows[id];
+                if (!changed[id] && isArchivedAccountUnavailable(history, id)) return false;
+                const knownExpired = latest.creationExpiresAt * 1000 < now && previous?.type === 'executed'
+                    && !previous.errorMessage && previous.orderInfo && !previous.orderInfo.isExecuted
+                    && previous.orderInfo.expiresAt.getTime() < now;
+                return changed[id] || !knownExpired;
+            });
+            const orders = await readMultisigOrders(toRead, multisigInfo, MULTISIG_ORDER_CODE, IS_TESTNET, signal);
+            const formatted = await formats;
+            if (!isCurrent()) return;
+            multisigInfo.signers = formatted.slice(0, signerCount);
+            multisigInfo.proposers = formatted.slice(signerCount);
+            history.events = all;
+            if (history.head === undefined && !refreshFailed) {
+                history.older = older;
+                history.archiveEndLt = older?.endLt;
+            }
+            history.head = head ?? history.head;
+            const wasIncomplete = history.deltaIncomplete;
+            history.deltaIncomplete = refreshFailed || (currentMultisigSigningConfig?.lastTransactionLt ?? 0n) > (history.head ?? 0n);
+            const updated = orders.map(order => {
+                const id = order.order.id.toString();
+                const previous = history.rows[id];
+                if (changed[id] || !previous) return order;
+                if (history.deltaIncomplete && order.accountInactive) return previous;
+                return preserveOrderOnReadFailure(order, previous);
+            });
+            publishMultisigOrders(multisigInfo, history, updated, isCurrent);
+            if (wasIncomplete && !history.deltaIncomplete && !history.older) fillSuggestedOrderId();
+            toggle($('#multisig_content'), true);
+            toggle($('#multisig_error'), false);
+        });
 
     } catch (e) {
         console.error(e);
@@ -386,12 +644,16 @@ const updateMultisig = async (multisigAddress: string, isFirst: boolean, revisio
         }
     }
 
+    if (!isCurrent()) return;
+    const orderIdToOpen = currentMultisigInfo ? queuedOrderId : undefined;
+    const retryOrderId = orderIdToOpen === undefined ? queuedOrderId : undefined;
     clearTimeout(updateMultisigTimeoutId);
-    updateMultisigTimeoutId = setTimeout(() => updateMultisig(multisigAddress, false, revision), 5000);
+    updateMultisigTimeoutId = setTimeout(() => updateMultisig(multisigAddress, false, revision, retryOrderId), 5000);
 
-    if (isFirst) {
-        showScreen('multisigScreen');
-    }
+    const opening = orderIdToOpen !== undefined ? setOrderId(orderIdToOpen) : undefined;
+    if (!opening && isFirst) showScreen('multisigScreen');
+    void loadOlderMultisigOrders(address, history, isCurrent);
+    await opening;
 }
 
 const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bigint): Promise<void> => {
@@ -400,10 +662,13 @@ const setMultisigAddress = async (newMultisigAddress: string, queuedOrderId?: bi
     clearOrder();
 
     currentMultisigAddress = newMultisigAddress;
+    currentMultisigHistory = {
+        controller: new AbortController(), loadingOlder: false, updates: Promise.resolve(), events: {}, rows: {}, traceQueue: new Map(),
+    };
     localStorage.setItem('multisigAddress', newMultisigAddress);
     pushUrlState(newMultisigAddress, queuedOrderId);
 
-    await updateMultisig(newMultisigAddress, true);
+    await updateMultisig(newMultisigAddress, true, multisigRevision, queuedOrderId);
 }
 
 $('#multisig_logoutButton').addEventListener('click', () => {
@@ -476,7 +741,7 @@ const renderCurrentOrderInfo = (): void => {
 
     let executedTxLink = '';
     if (isExecuted) {
-        const lastOrder = currentMultisigInfo.lastOrders.find(lo => lo.order.id === currentOrderInfo.orderId);
+        const lastOrder = currentMultisigInfo.lastOrders.find(lo => lo.order.id === currentOrderInfo.orderId && lo.executionStatus !== undefined);
         if (lastOrder) {
             executedTxLink += ` — <a href="${transactionExplorerUrl(lastOrder.transactionHash)}" target="_blank">Tx Link</a>`;
         }
@@ -645,9 +910,7 @@ $('#order_approveButton').addEventListener('click', async () => {
     let orderInfo: MultisigOrderInfo;
     let isExecution: boolean;
     try {
-        const parent = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, MULTISIG_ORDER_CODE,
-            IS_TESTNET, 'none', false, {
-                resolveAddressFormats: false,
+        const parent = await checkMultisig(Address.parseFriendly(multisigAddress), MULTISIG_CODE, IS_TESTNET, false, {
                 signal: controller.signal,
                 onSigningConfigRead: onMultisigSigningConfigRead(parentRevision),
             });
@@ -1351,7 +1614,7 @@ let transactionToSent: {
 } | undefined = undefined;
 
 const getNewOrderId = (): string => {
-    if (!currentMultisigInfo) return '';
+    if (!currentMultisigInfo || currentMultisigHistory?.older || currentMultisigHistory?.deltaIncomplete) return '';
 
     if (currentMultisigInfo.lastOrders.length === 0) {
         return '1';
@@ -1363,8 +1626,17 @@ const getNewOrderId = (): string => {
             highestOrderId = lastOrder.order.id;
         }
     });
-    return highestOrderId === -1n ? '' : (highestOrderId + 1n).toString();
+    const nextId = highestOrderId + 1n;
+    return highestOrderId === -1n || nextId >= (1n << 256n) ? '' : nextId.toString();
 }
+
+const fillSuggestedOrderId = (): void => {
+    const input = currentScreen === 'newOrderScreen' && newOrderMode === 'fill'
+        ? $('#newOrder_orderId') as HTMLInputElement
+        : currentScreen === 'newMultisigScreen' && newMultisigMode === 'update' && newMultisigStatus === 'fill'
+            ? newMultisigOrderIdInput : undefined;
+    if (input && !input.value) input.value = getNewOrderId();
+};
 
 const newOrderClear = () => {
     setNewOrderMode('fill');
@@ -1920,18 +2192,20 @@ $('#newMultisig_createButton').addEventListener('click', async () => {
 
         const isSigner = mySignerIndex > -1;
 
-        let hasPendingOrder = false;
-        for (const lastOrder of currentMultisigInfo.lastOrders) {
-            if (lastOrder.type === 'pending') {
-                hasPendingOrder = true;
-                break;
-            }
-        }
-
-        if (hasPendingOrder && (!equalsAddressLists(signersAddresses, currentMultisigInfo.signers.map(a => a.address)) || currentMultisigInfo.threshold < threshold)) {
-            if (!confirm('You have pending orders and change the multisig configuration. These pending orders can no longer be executed. Do you want to continue?')) {
-                return;
-            }
+        if (!equalsAddressLists(signersAddresses, currentMultisigInfo.signers.map(a => a.address)) || currentMultisigInfo.threshold < threshold) {
+            const hasPendingOrder = currentMultisigInfo.lastOrders.some(order => order.type === 'pending');
+            if (hasPendingOrder && !confirm('You have pending orders and change the multisig configuration. These pending orders can no longer be executed. Do you want to continue?')) return;
+            const now = Date.now();
+            const ordersUnverified = currentMultisigHistory.older || currentMultisigHistory.deltaIncomplete
+                || currentMultisigInfo.lastOrders.some(order => {
+                    const latest = currentMultisigHistory.events[order.order.id.toString()]?.latest;
+                    const expiresAt = order.accountReadFailed
+                        ? order.orderInfo?.expiresAt.getTime() : latest?.creationExpiresAt * 1000;
+                    return (order.accountReadFailed || (order.accountInactive && latest?.type === 'new'))
+                        && !(expiresAt < now);
+                });
+            if (!hasPendingOrder && ordersUnverified
+                && !confirm('Some orders are still being checked. Changing the multisig configuration can prevent pending orders from being executed. Do you want to continue?')) return;
         }
 
         const expireAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30; // 1 month
@@ -2043,12 +2317,7 @@ const processUrl = async () => {
             showScreen('startScreen');
         } else {
             const newMultisigAddress = formatContractAddress(multisigAddress.address);
-            const loading = setMultisigAddress(newMultisigAddress, orderId);
-            const revision = multisigRevision;
-            await loading;
-            if (orderId !== undefined && multisigRevision === revision && currentMultisigInfo && (currentMultisigAddress === newMultisigAddress)) {
-                await setOrderId(orderId, undefined);
-            }
+            await setMultisigAddress(newMultisigAddress, orderId);
         }
     } else {
         tryLoadMultisigFromLocalStorage();

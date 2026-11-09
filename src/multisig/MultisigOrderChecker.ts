@@ -37,6 +37,12 @@ export interface MultisigOrderInfo {
     isMismatchThreshold: boolean;
 }
 
+export type OrderAccount =
+    | {status: 'active'; code: string; data: string; balance: string}
+    | {status: 'uninit' | 'frozen' | 'nonexist'};
+
+export class InactiveOrderAccountError extends Error {}
+
 export const getMultisigOrderMismatch = (parent: MultisigSigningConfig, order: MultisigSigningConfig & {isExecuted: boolean}) => ({
     isMismatchThreshold: !order.isExecuted && parent.threshold > order.threshold,
     isMismatchSigners: !order.isExecuted && !equalsAddressLists(parent.signers, order.signers),
@@ -59,12 +65,16 @@ export const checkMultisigOrder = async (
     needAdditionalGetMethodChecks: boolean,
     resolveAddressFormats = true,
     signal?: AbortSignal,
+    account?: OrderAccount,
 ): Promise<MultisigOrderInfo> => {
 
     // Account State and Data
 
-    const result = await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet, signal);
-    assert(result.status === 'active', "Contract not active. If you have just created an order it should appear within ~30 seconds.");
+    const result = account ?? await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet, signal);
+    if (result.status === 'uninit' || result.status === 'frozen' || result.status === 'nonexist') {
+        throw new InactiveOrderAccountError('Contract not active. If you have just created an order it should appear within ~30 seconds.');
+    }
+    assert(result.status === 'active', 'Invalid order account status');
 
     assert(Cell.fromBase64(result.code).equals(multisigOrderCode), 'The contract code DOES NOT match the multisig-order code from this repository');
 
