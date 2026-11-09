@@ -277,6 +277,15 @@ button:disabled, .btn:disabled {
     color: #ec6471;
 }
 
+#order_approvalNotice {
+    display: none;
+    padding: 12px 16px;
+    margin: 16px 0;
+    border-radius: 8px;
+    background: #fff5e5;
+    color: #725014;
+}
+
 
 #order_actionsTitle {
     margin-top: 30px;

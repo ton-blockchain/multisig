@@ -2,17 +2,19 @@ import {
     AddressInfo,
     addressToString,
     assert,
-    equalsAddressLists,
-    getAddressFormats
+    equalsAddressLists
 } from "../utils/utils";
 import {Address, Cell, Dictionary} from "@ton/core";
 import {endParse, Multisig, parseMultisigData} from "./Multisig";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
 import {Op} from "./Constants";
 import {Order} from "./Order";
-import {checkMultisigOrder, MultisigOrderInfo} from "./MultisigOrderChecker";
+import {checkMultisigOrder, InactiveOrderAccountError, MultisigOrderInfo, OrderAccount} from "./MultisigOrderChecker";
 
-const TRACE_BATCH_SIZE = 50;
+const HISTORY_PAGE_SIZE = 256;
+const HISTORY_PAGE_TIMEOUT_MS = 15_000;
+const ORDER_ACCOUNT_BATCH_SIZE = 50;
+const ORDER_ACCOUNT_BATCH_TIMEOUT_MS = 15_000;
 
 interface ToncenterMessage {
     decoded_opcode?: string | null;
@@ -51,6 +53,7 @@ interface ToncenterTransaction {
 
 interface ToncenterTrace {
     is_incomplete?: boolean;
+    trace_info?: {trace_state: string; transactions: number};
     transactions?: Record<string, ToncenterTransaction> | null;
 }
 
@@ -102,6 +105,27 @@ const isFailedToncenterTransaction = (transaction: ToncenterTransaction): boolea
     return !isExcessMessage(inMsg) && !inMsg?.bounced;
 }
 
+export type MultisigExecutionResult = 'success' | 'failed';
+
+export const readMultisigExecutionResults = async (hashes: string[], isTestnet: boolean, signal: AbortSignal) => {
+    const response: ToncenterTracesResponse = await sendToIndex('traces', {tx_hash: hashes, limit: hashes.length}, isTestnet, signal);
+    const results = new Map<string, MultisigExecutionResult>();
+
+    for (const trace of response.traces || []) {
+        if (trace.is_incomplete !== false || trace.trace_info?.trace_state !== 'complete' || !trace.transactions) continue;
+        const transactions = Object.values(trace.transactions);
+        if (transactions.length !== trace.trace_info.transactions) continue;
+        const failed = transactions.some(isFailedToncenterTransaction);
+
+        for (const hash of hashes) {
+            if (trace.transactions[hash] && results.get(hash) !== 'failed') {
+                results.set(hash, failed ? 'failed' : 'success');
+            }
+        }
+    }
+    return results;
+};
+
 const parseNewOrderInitStateBody = (cell: Cell) => {
     const slice = cell.beginParse();
     const multisigAddress = slice.loadAddress();
@@ -136,7 +160,7 @@ const parseNewOrderOutMsg = (outMsg: any) => {
 
     const body = Cell.fromBase64(outMsg.message_content.body).beginParse();
     assert(body.loadUint(32) === Op.order.init, "invalid op");
-    const queryId = body.loadUint(64);
+    const queryId = body.loadUintBig(64);
     const threshold = body.loadUint(8);
     const signers = body.loadRef().beginParse().loadDictDirect(Dictionary.Keys.Uint(8), Dictionary.Values.Address());
     const expiredAt = body.loadUint(48);
@@ -161,22 +185,71 @@ const parseNewOrderOutMsg = (outMsg: any) => {
 
     return {
         orderAddress,
-        orderId: parsed.body.orderId
+        orderId: parsed.body.orderId,
+        creationExpiresAt: expiredAt,
     }
 }
 
 export interface LastOrder {
     utime: number,
+    lt: bigint;
     transactionHash: string;
     type: 'new' | 'execute' | 'pending' | 'executed';
-    executionStatus?: 'checking' | 'success' | 'failed';
+    executionStatus?: 'checking' | MultisigExecutionResult;
     errorMessage?: string;
     order?: {
         address: AddressInfo;
         id: bigint;
     }
     orderInfo?: MultisigOrderInfo;
+    accountInactive?: boolean;
+    accountReadFailed?: boolean;
+    creationExpiresAt?: number;
 }
+
+const readWithDeadline = async <T>(signal: AbortSignal, duration: number, read: (signal: AbortSignal) => Promise<T>): Promise<T> => {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal.aborted) abort();
+    else signal.addEventListener('abort', abort, {once: true});
+    const timeout = setTimeout(abort, duration);
+    try {
+        return await read(controller.signal);
+    } finally {
+        clearTimeout(timeout);
+        signal.removeEventListener('abort', abort);
+    }
+};
+
+const readOrderAccountBatch = async (orders: LastOrder[], isTestnet: boolean, signal: AbortSignal) => {
+    const states = new Map<string, OrderAccount>();
+    try {
+        const address = orders.map(order => addressToString(order.order.address));
+        const {accounts} = await readWithDeadline(signal, ORDER_ACCOUNT_BATCH_TIMEOUT_MS,
+            requestSignal => sendToIndex('accountStates', {address, include_boc: true}, isTestnet, requestSignal));
+        if (!Array.isArray(accounts)) throw new Error('Invalid order account batch');
+        for (const account of accounts) {
+            const {address, status, balance, code_boc, data_boc} = account ?? {};
+            if (typeof address !== 'string') continue;
+
+            let state: OrderAccount;
+            if (status === 'active' && typeof balance === 'string' && typeof code_boc === 'string' && typeof data_boc === 'string') {
+                state = {status, balance, code: code_boc, data: data_boc};
+            } else if (status === 'frozen' || status === 'uninit' || status === 'nonexist') {
+                state = {status};
+            } else {
+                continue;
+            }
+            try {
+                states.set(Address.parse(address).toRawString(), state);
+            } catch {}
+        }
+    } catch (error) {
+        if (!signal.aborted) console.error('Failed to load order account batch', error);
+        return undefined;
+    }
+    return states;
+};
 
 export interface MultisigInfo {
     address: AddressInfo;
@@ -192,18 +265,25 @@ export interface MultisigInfo {
     stateInitMatches: boolean;
 }
 
+export interface MultisigSigningConfig {
+    threshold: number;
+    signers: Address[];
+}
+
 export const checkMultisig = async (
     multisigAddress: AddressInfo,
     multisigCode: Cell,
-    multisigOrderCode: Cell,
     isTestnet: boolean,
-    lastOrdersMode: 'none' | 'history' | 'aggregate',
     needAdditionalGetMethodChecks: boolean,
+    options: {
+        signal?: AbortSignal;
+        onSigningConfigRead?: (config: MultisigSigningConfig, lastTransactionLt: bigint | undefined) => void;
+    } = {},
 ): Promise<MultisigInfo> => {
 
     // Account State and Data
 
-    const result = await sendToIndex('account', {address: addressToString(multisigAddress)}, isTestnet);
+    const result = await sendToIndex('account', {address: addressToString(multisigAddress)}, isTestnet, options.signal);
     assert(result.status === 'active', "Contract not active. If you have just created a multisig it should appear within ~30 seconds.");
 
     assert(Cell.fromBase64(result.code).equals(multisigCode), 'The contract code DOES NOT match the multisig code from this repository');
@@ -224,7 +304,11 @@ export const checkMultisig = async (
     assert(parsedData.threshold > 0, 'threshold <= 0');
     assert(parsedData.threshold <= parsedData.signersCount, 'invalid threshold');
 
-    const formatsPromise = getAddressFormats([...signers, ...proposers], isTestnet);
+    if (options.onSigningConfigRead) {
+        const rawLt = result.last_transaction_lt;
+        const lastTransactionLt = typeof rawLt === 'string' && /^\d+$/.test(rawLt) ? BigInt(rawLt) : undefined;
+        options.onSigningConfigRead({threshold: parsedData.threshold, signers}, lastTransactionLt);
+    }
 
     // Get-methods
 
@@ -271,238 +355,255 @@ export const checkMultisig = async (
         stateInitMatches
     }
 
-    // Last Orders
+    return multisigInfo;
+}
 
-    let lastOrders: LastOrder[] = [];
+export interface MultisigHistoryCursor {
+    endLt: bigint;
+    expectedLt: bigint;
+}
 
-    if (lastOrdersMode !== 'none') {
+export const readMultisigHistoryPage = async (
+    multisigAddress: AddressInfo,
+    multisigOrderCode: Cell,
+    isTestnet: boolean,
+    signal: AbortSignal,
+    cursor?: MultisigHistoryCursor,
+    afterLt?: bigint,
+) => {
+    const query = {
+        account: addressToString(multisigAddress),
+        limit: HISTORY_PAGE_SIZE,
+        sort: 'desc',
+        ...(cursor ? {end_lt: cursor.endLt} : {}),
+        ...(afterLt !== undefined ? {start_lt: afterLt + 1n} : {}),
+    };
+    const {transactions} = await readWithDeadline(signal, HISTORY_PAGE_TIMEOUT_MS,
+        requestSignal => sendToIndex('transactions', query, isTestnet, requestSignal));
+    if (!Array.isArray(transactions) || (cursor && cursor.expectedLt !== 0n && transactions.length === 0)) {
+        throw new Error('Incomplete multisig transaction history');
+    }
 
-        const result = await sendToIndex('transactions', {account: addressToString(multisigAddress), limit: 256}, isTestnet);
-
-        for (const tx of result.transactions) {
-            if (!tx.in_msg.message_content) continue;
-            if (!tx.in_msg.message_content.body) continue;
-
-            const inBody = Cell.fromBase64(tx.in_msg.message_content.body);
-            const inBodySlice = inBody.beginParse();
-            if (inBodySlice.remainingBits < 32) {
-                continue;
-            }
-            const op = inBodySlice.loadUint(32);
-
-            if (op === 0x75097f5d) { // execute
-                try {
-                    const queryId = inBodySlice.loadUintBig(64);
-                    const orderId = inBodySlice.loadUintBig(256);
-                    const orderAddress = Address.parse(tx.in_msg.source);
-
-                    const multisigOrderToCheck = Order.createFromConfig({
-                        multisig: multisigAddress.address,
-                        orderSeqno: orderId
-                    }, multisigOrderCode);
-
-
-                    if (!orderAddress.equals(multisigOrderToCheck.address)) {
-                        throw new Error('fake order');
-                    }
-
-                    lastOrders.push({
-                        utime: tx.now,
-                        transactionHash: tx.hash,
-                        type: 'execute',
-                        order: {
-                            address: {
-                                address: orderAddress,
-                                isBounceable: true,
-                                isTestOnly: isTestnet
-                            },
-                            id: orderId
-                        }
-                    })
-
-                } catch (e: any) {
-                    lastOrders.push({
-                        utime: tx.now,
-                        transactionHash: tx.hash,
-                        type: 'execute',
-                        errorMessage: e.message
-                    })
-                }
-
-            } else if (op === 0xf718510f) { // new_order
-                try {
-                    if (tx.out_msgs.length !== 1) throw new Error('invalid out messages');
-                    const outMsg = tx.out_msgs[0];
-                    const {orderAddress, orderId} = parseNewOrderOutMsg(outMsg);
-
-                    const multisigOrderToCheck = Order.createFromConfig({
-                        multisig: multisigAddress.address,
-                        orderSeqno: orderId
-                    }, multisigOrderCode);
-
-
-                    if (!orderAddress.equals(multisigOrderToCheck.address)) {
-                        throw new Error('fake order');
-                    }
-
-                    const queryId = inBodySlice.loadUint(64);
-                    const _orderId = inBodySlice.loadUint(256);
-                    const isSigner = inBodySlice.loadUint(1);
-                    const index = inBodySlice.loadUint(8);
-                    const expiredAt = inBodySlice.loadUint(48);
-                    const order = inBodySlice.loadRef().beginParse().loadDictDirect(Dictionary.Keys.Uint(8), Dictionary.Values.Cell());
-
-                    endParse(inBodySlice);
-
-                    console.log('IN', {
-                        queryId,
-                        orderId,
-                        orderAddress: orderAddress.toString(),
-                        isSigner,
-                        index,
-                        expiredAt,
-                        order
-                    })
-
-                    lastOrders.push({
-                        utime: tx.now,
-                        transactionHash: tx.hash,
-                        type: 'new',
-                        order: {
-                            address: {
-                                address: orderAddress,
-                                isBounceable: true,
-                                isTestOnly: isTestnet
-                            },
-                            id: orderId
-                        }
-                    })
-
-                } catch (e: any) {
-                    console.log(e);
-                    lastOrders.push({
-                        utime: tx.now,
-                        transactionHash: tx.hash,
-                        type: 'new',
-                        errorMessage: 'Invalid new order: ' + e.message
-                    })
-                }
-            }
+    const lastOrders: LastOrder[] = [];
+    let endLt = cursor?.endLt;
+    let expectedLt = cursor?.expectedLt ?? 0n;
+    for (const tx of transactions) {
+        const lt = BigInt(tx.lt);
+        const previousLt = BigInt(tx.prev_trans_lt);
+        if ((endLt !== undefined && lt > endLt) || (expectedLt !== 0n && lt !== expectedLt)
+            || previousLt < 0n || previousLt >= lt
+            || (afterLt !== undefined && (lt <= afterLt || (previousLt !== 0n && previousLt < afterLt)))) {
+            throw new Error('Incomplete multisig transaction history');
         }
+        endLt = lt - 1n;
+        expectedLt = previousLt;
 
-        if (lastOrdersMode === 'aggregate') {
-            const lastOrdersMap: {[key: string]: LastOrder} = {};
-            for (let lastOrder of lastOrders) {
-                if (lastOrder.errorMessage) continue;
+        if (!tx.in_msg?.message_content?.body) continue;
 
-                const orderId = lastOrder.order.id.toString();
+        const inBody = Cell.fromBase64(tx.in_msg.message_content.body);
+        const inBodySlice = inBody.beginParse();
+        if (inBodySlice.remainingBits < 32) {
+            continue;
+        }
+        const op = inBodySlice.loadUint(32);
 
-                if (!lastOrdersMap[orderId]) {
-                    lastOrdersMap[orderId] = {
-                        utime: lastOrder.utime,
-                        transactionHash: lastOrder.transactionHash,
-                        type: lastOrder.type === 'new' ? 'pending' : 'executed',
-                        order: lastOrder.order
+        if (op === 0x75097f5d) { // execute
+            try {
+                const queryId = inBodySlice.loadUintBig(64);
+                const orderId = inBodySlice.loadUintBig(256);
+                const orderAddress = Address.parse(tx.in_msg.source);
+
+                const multisigOrderToCheck = Order.createFromConfig({
+                    multisig: multisigAddress.address,
+                    orderSeqno: orderId
+                }, multisigOrderCode);
+
+
+                if (!orderAddress.equals(multisigOrderToCheck.address)) {
+                    throw new Error('fake order');
+                }
+
+                lastOrders.push({
+                    utime: tx.now,
+                    lt,
+                    transactionHash: tx.hash,
+                    type: 'execute',
+                    order: {
+                        address: {
+                            address: orderAddress,
+                            isBounceable: true,
+                            isTestOnly: isTestnet
+                        },
+                        id: orderId
                     }
-                } else {
-                    if (lastOrdersMap[orderId].type !== 'executed' && lastOrder.type === 'execute') {
-                        lastOrdersMap[orderId].utime = lastOrder.utime;
-                        lastOrdersMap[orderId].type = 'executed';
+                })
+
+            } catch (e: any) {
+                lastOrders.push({
+                    utime: tx.now,
+                    lt,
+                    transactionHash: tx.hash,
+                    type: 'execute',
+                    errorMessage: e.message
+                })
+            }
+
+        } else if (op === 0xf718510f) { // new_order
+            try {
+                if (tx.out_msgs.length !== 1) throw new Error('invalid out messages');
+                const outMsg = tx.out_msgs[0];
+                const {orderAddress, orderId, creationExpiresAt} = parseNewOrderOutMsg(outMsg);
+
+                const multisigOrderToCheck = Order.createFromConfig({
+                    multisig: multisigAddress.address,
+                    orderSeqno: orderId
+                }, multisigOrderCode);
+
+
+                if (!orderAddress.equals(multisigOrderToCheck.address)) {
+                    throw new Error('fake order');
+                }
+
+                const queryId = inBodySlice.loadUintBig(64);
+                inBodySlice.skip(256);
+                const isSigner = inBodySlice.loadUint(1);
+                const index = inBodySlice.loadUint(8);
+                const expiredAt = inBodySlice.loadUint(48);
+                const order = inBodySlice.loadRef().beginParse().loadDictDirect(Dictionary.Keys.Uint(8), Dictionary.Values.Cell());
+
+                endParse(inBodySlice);
+
+                console.log('IN', {
+                    queryId,
+                    orderId,
+                    orderAddress: orderAddress.toString(),
+                    isSigner,
+                    index,
+                    expiredAt,
+                    order
+                })
+
+                lastOrders.push({
+                    utime: tx.now,
+                    lt,
+                    transactionHash: tx.hash,
+                    type: 'new',
+                    creationExpiresAt,
+                    order: {
+                        address: {
+                            address: orderAddress,
+                            isBounceable: true,
+                            isTestOnly: isTestnet
+                        },
+                        id: orderId
                     }
-                }
+                })
+
+            } catch (e: any) {
+                console.log(e);
+                lastOrders.push({
+                    utime: tx.now,
+                    lt,
+                    transactionHash: tx.hash,
+                    type: 'new',
+                    errorMessage: 'Invalid new order: ' + e.message
+                })
             }
-
-            lastOrders = Object.values(lastOrdersMap);
-
-
-            const executedOrders = lastOrders.filter(lastOrder => lastOrder.type === 'executed');
-            const transactionHashes = [...new Set(executedOrders.map(lastOrder => lastOrder.transactionHash))];
-            const resolvedHashes = new Set<string>();
-            const failedHashes = new Set<string>();
-
-            const getTraceBatch = async (batch: string[]): Promise<void> => {
-                const result: ToncenterTracesResponse = await sendToIndex('traces', {tx_hash: batch, limit: batch.length}, isTestnet);
-
-                for (const trace of result.traces || []) {
-                    if (trace.is_incomplete) continue;
-
-                    const transactions = trace.transactions || {};
-                    const failed = Object.values(transactions).some(isFailedToncenterTransaction);
-
-                    for (const transactionHash of batch) {
-                        if (transactions[transactionHash]) {
-                            resolvedHashes.add(transactionHash);
-                            if (failed) failedHashes.add(transactionHash);
-                        }
-                    }
-                }
-            }
-
-            const getTraceBatchPromises: Promise<void>[] = [];
-            for (let offset = 0; offset < transactionHashes.length; offset += TRACE_BATCH_SIZE) {
-                const batch = transactionHashes.slice(offset, offset + TRACE_BATCH_SIZE);
-                getTraceBatchPromises.push(getTraceBatch(batch));
-            }
-
-            const getOrderInfo = async (lastOrder: LastOrder) => {
-                if (lastOrder.type === 'pending') {
-                    try {
-                        const orderInfo = await checkMultisigOrder(lastOrder.order.address, multisigOrderCode, multisigInfo, isTestnet, false, false);
-                        lastOrder.orderInfo = orderInfo;
-                        const isExpired = (new Date()).getTime() > orderInfo.expiresAt.getTime();
-                        if (isExpired) {
-                            lastOrder.type = 'executed';
-                        } else if (orderInfo.isMismatchSigners || orderInfo.isMismatchThreshold) {
-                            lastOrder.type = 'executed';
-                            lastOrder.errorMessage = 'Multisig signers or threshold do not match order';
-                        }
-                    } catch (e) {
-                        lastOrder.type = 'executed';
-                        lastOrder.errorMessage = e.message;
-                    }
-                }
-            }
-
-            const getOrderInfoPromises: Promise<void>[] = [];
-
-            for (const lastOrder of lastOrders) {
-                getOrderInfoPromises.push(getOrderInfo(lastOrder));
-            }
-
-            const traceBatchResults = await Promise.allSettled(getTraceBatchPromises);
-            for (const result of traceBatchResults) {
-                if (result.status === 'rejected') {
-                    console.error('Failed to load transaction trace batch', result.reason);
-                }
-            }
-            await Promise.all(getOrderInfoPromises);
-
-            for (const lastOrder of executedOrders) {
-                if (!resolvedHashes.has(lastOrder.transactionHash)) {
-                    lastOrder.executionStatus = 'checking';
-                } else if (failedHashes.has(lastOrder.transactionHash)) {
-                    lastOrder.executionStatus = 'failed';
-                    lastOrder.errorMessage = 'Failed';
-                } else {
-                    lastOrder.executionStatus = 'success';
-                }
-            }
-
-            lastOrders = lastOrders.sort((a, b) => {
-                if (a.type === b.type) {
-                    return b.utime - a.utime;
-                } else {
-                    if (a.type === 'pending') return -1;
-                    return 1;
-                }
-            });
         }
     }
 
-    const formatted = await formatsPromise;
-    multisigInfo.signers = formatted.slice(0, signers.length);
-    multisigInfo.proposers = formatted.slice(signers.length);
-    multisigInfo.lastOrders = lastOrders;
+    const reachedKnownHead = afterLt !== undefined && expectedLt === afterLt;
+    const hasMore = !reachedKnownHead && (transactions.length >= HISTORY_PAGE_SIZE || expectedLt !== 0n);
+    return {
+        head: transactions.length ? BigInt(transactions[0].lt) : undefined,
+        next: hasMore ? {endLt, expectedLt} : null,
+        events: lastOrders,
+    };
+};
 
-    return multisigInfo;
+export interface MultisigOrderEvents {
+    latest: LastOrder;
+    execution?: LastOrder;
 }
+
+export const mergeMultisigOrderEvents = (orders: Record<string, MultisigOrderEvents>, events: LastOrder[]) => {
+    const changed: Record<string, MultisigOrderEvents> = {};
+    for (const event of events) {
+        if (event.errorMessage) continue;
+        const id = event.order.id.toString();
+        const entry = changed[id] ?? orders[id];
+        const latest = !entry || event.lt > entry.latest.lt ? event : entry.latest;
+        let execution = entry?.execution;
+        if (event.type === 'execute' && (!execution || event.lt > execution.lt)) execution = event;
+        if (latest !== entry?.latest || execution !== entry?.execution) changed[id] = {latest, execution};
+    }
+    return changed;
+};
+
+export const readMultisigOrders = async (
+    events: MultisigOrderEvents[],
+    multisigInfo: MultisigInfo,
+    multisigOrderCode: Cell,
+    isTestnet: boolean,
+    signal: AbortSignal,
+    options: {previousRows?: ReadonlyMap<string, LastOrder>; batchEndpoint?: {available: boolean}} = {},
+): Promise<LastOrder[]> => {
+    const {previousRows, batchEndpoint = {available: true}} = options;
+    const executedOrder = (event: LastOrder): LastOrder => ({...event, type: 'executed', executionStatus: 'checking'});
+    const entries = events.map(({latest, execution}) => {
+        const hasNewCreation = multisigInfo.allowArbitraryOrderSeqno && latest.type === 'new';
+        const order: LastOrder = execution && !hasNewCreation ? executedOrder(execution) : {...latest, type: 'pending'};
+        return {order, execution, previous: previousRows?.get(latest.order.id.toString())};
+    });
+    const getOrderInfo = async (lastOrder: LastOrder, execution?: LastOrder, account?: OrderAccount, previous?: LastOrder) => {
+        const readOrder = (state?: OrderAccount, requestSignal = signal) => checkMultisigOrder(lastOrder.order.address,
+            multisigOrderCode, multisigInfo, isTestnet, false, false, requestSignal, state);
+        const readSingle = () => readWithDeadline(signal, ORDER_ACCOUNT_BATCH_TIMEOUT_MS, requestSignal => readOrder(undefined, requestSignal));
+        try {
+            const orderInfo = await (account ? readOrder(account).catch(error => {
+                if (signal.aborted || account.status !== 'active') throw error;
+                return readSingle();
+            }) : readSingle());
+            if (execution && orderInfo.isExecuted) return executedOrder(execution);
+            lastOrder.orderInfo = orderInfo;
+            const isExpired = (new Date()).getTime() > orderInfo.expiresAt.getTime();
+            if (isExpired) {
+                lastOrder.type = 'executed';
+            } else if (orderInfo.isMismatchSigners || orderInfo.isMismatchThreshold) {
+                lastOrder.type = 'executed';
+                lastOrder.errorMessage = 'Multisig signers or threshold do not match order';
+            }
+        } catch (e) {
+            const accountInactive = e instanceof InactiveOrderAccountError;
+            const executionUnchanged = !execution || previous?.transactionHash === execution.transactionHash;
+            if (previous && (!accountInactive || (previous.accountInactive && executionUnchanged))) {
+                const accountReadFailed = !accountInactive;
+                return Boolean(previous.accountReadFailed) === accountReadFailed ? previous : {...previous, accountReadFailed};
+            }
+            if (accountInactive) {
+                if (execution) return {...executedOrder(execution), accountInactive: true};
+                lastOrder.accountInactive = true;
+            } else {
+                lastOrder.accountReadFailed = true;
+            }
+            lastOrder.type = 'executed';
+            lastOrder.errorMessage = e.message;
+        }
+        return lastOrder;
+    };
+    const pending = entries.filter(({order}) => order.type === 'pending');
+    for (let offset = 0; offset < pending.length && !signal.aborted; offset += ORDER_ACCOUNT_BATCH_SIZE) {
+        const batch = pending.slice(offset, offset + ORDER_ACCOUNT_BATCH_SIZE);
+        let states: Map<string, OrderAccount> | undefined;
+        if (batchEndpoint.available && (batch.length > 1 || batch[0].previous)) {
+            states = await readOrderAccountBatch(batch.map(({order}) => order), isTestnet, signal);
+            batchEndpoint.available = states !== undefined;
+        }
+        if (signal.aborted) break;
+        await Promise.all(batch.map(async entry => {
+            const account = states?.get(entry.order.order.address.address.toRawString());
+            entry.order = await getOrderInfo(entry.order, entry.execution, account, entry.previous);
+        }));
+    }
+    return entries.map(({order}) => order);
+};

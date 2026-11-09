@@ -10,7 +10,7 @@ import {
 import {Address, Cell, Dictionary, fromNano, loadMessageRelaxed, CommonMessageInfoRelaxedInternal} from "@ton/core";
 import {cellToArray, endParse} from "./Multisig";
 import {Order, parseOrderData} from "./Order";
-import {MultisigInfo} from "./MultisigChecker";
+import type {MultisigInfo, MultisigSigningConfig} from "./MultisigChecker";
 import {MyNetworkProvider, sendToIndex} from "../utils/MyNetworkProvider";
 import {intToLockType, JettonMinter, lockTypeToDescription} from "../jetton/JettonMinter";
 import {
@@ -25,15 +25,28 @@ export interface MultisigOrderInfo {
     orderId: bigint;
     isExecuted: boolean;
     approvalsNum: number;
-    approvalsMask: number;
+    approvalsMask: bigint;
     threshold: number;
     signers: AddressInfo[];
     expiresAt: Date;
+    expirationDate: number;
+    orderHash: string;
     actions: string[];
     stateInitMatches: boolean;
     isMismatchSigners: boolean;
     isMismatchThreshold: boolean;
 }
+
+export type OrderAccount =
+    | {status: 'active'; code: string; data: string; balance: string}
+    | {status: 'uninit' | 'frozen' | 'nonexist'};
+
+export class InactiveOrderAccountError extends Error {}
+
+export const getMultisigOrderMismatch = (parent: MultisigSigningConfig, order: MultisigSigningConfig & {isExecuted: boolean}) => ({
+    isMismatchThreshold: !order.isExecuted && parent.threshold > order.threshold,
+    isMismatchSigners: !order.isExecuted && !equalsAddressLists(parent.signers, order.signers),
+});
 
 type ActionDescription = (string | Address)[];
 
@@ -51,12 +64,17 @@ export const checkMultisigOrder = async (
     isTestnet: boolean,
     needAdditionalGetMethodChecks: boolean,
     resolveAddressFormats = true,
+    signal?: AbortSignal,
+    account?: OrderAccount,
 ): Promise<MultisigOrderInfo> => {
 
     // Account State and Data
 
-    const result = await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet);
-    assert(result.status === 'active', "Contract not active. If you have just created an order it should appear within ~30 seconds.");
+    const result = account ?? await sendToIndex('account', {address: addressToString(multisigOrderAddress)}, isTestnet, signal);
+    if (result.status === 'uninit' || result.status === 'frozen' || result.status === 'nonexist') {
+        throw new InactiveOrderAccountError('Contract not active. If you have just created an order it should appear within ~30 seconds.');
+    }
+    assert(result.status === 'active', 'Invalid order account status');
 
     assert(Cell.fromBase64(result.code).equals(multisigOrderCode), 'The contract code DOES NOT match the multisig-order code from this repository');
 
@@ -68,7 +86,6 @@ export const checkMultisigOrder = async (
     checkNumber(parsedData.threshold);
     assert(parsedData.threshold > 0, "Threshold not positive")
     assert(parsedData.threshold <= parsedData.signers.length, "Invalid threshold")
-    checkNumber(parsedData.approvalsMask);
     checkNumber(parsedData.approvalsNum);
     assert(parsedData.approvalsNum <= parsedData.signers.length, "Invalid approvalsNum ")
     checkNumber(parsedData.expirationDate);
@@ -85,13 +102,10 @@ export const checkMultisigOrder = async (
 
     assert(multisigOrderToCheck.address.equals(multisigOrderAddress.address), "Fake multisig-order");
 
-    let isMismatchSigners = false;
-    let isMismatchThreshold = false;
-
-    if (!parsedData.isExecuted) {
-        isMismatchThreshold = multisigInfo.threshold > parsedData.threshold;
-        isMismatchSigners = !equalsAddressLists(multisigInfo.signers.map(a => a.address), parsedData.signers);
-    }
+    const mismatch = getMultisigOrderMismatch({
+        threshold: multisigInfo.threshold,
+        signers: multisigInfo.signers.map(signer => signer.address),
+    }, parsedData);
 
     if (needAdditionalGetMethodChecks) {
         // Get-methods
@@ -105,7 +119,7 @@ export const checkMultisigOrder = async (
         assert(getData.threshold === parsedData.threshold, "Invalid threshold");
         assert(getData.executed === parsedData.isExecuted, "Invalid isExecuted");
         assert(equalsAddressLists(getData.signers, parsedData.signers), "Invalid signers");
-        assert(getData._approvals === BigInt(parsedData.approvalsMask), "Invalid approvalsMask");
+        assert(getData._approvals === parsedData.approvalsMask, "Invalid approvalsMask");
         assert(getData.approvals_num === parsedData.approvalsNum, "Invalid approvalsNum");
         assert(getData.expiration_date === BigInt(parsedData.expirationDate), "Invalid expirationDate");
         assert(getData.order.hash().equals(parsedData.order.hash()), "Invalid order");
@@ -404,10 +418,11 @@ export const checkMultisigOrder = async (
         threshold: parsedData.threshold,
         signers: signersFormatted,
         expiresAt: new Date(parsedData.expirationDate * 1000),
+        expirationDate: parsedData.expirationDate,
+        orderHash: parsedData.order.hash().toString('hex'),
         actions: renderedActions,
         stateInitMatches,
-        isMismatchSigners,
-        isMismatchThreshold
+        ...mismatch,
     }
 
 }
